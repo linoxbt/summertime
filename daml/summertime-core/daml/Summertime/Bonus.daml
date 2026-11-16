@@ -1,0 +1,44 @@
+-- | Failure-bonus arithmetic (specification section 17.2).
+module Summertime.Bonus
+  ( computeBonuses
+  , bonusDust
+  , proportionalMinimumEligible
+  , capMultiple
+  ) where
+
+-- | The proportional split applies only with at least this many eligible importers.
+-- Below it, a proportional amount would let one importer compute another's exact volume.
+proportionalMinimumEligible : Int
+proportionalMinimumEligible = 3
+
+-- | Per-importer cap: this many equal shares (Proposed).
+capMultiple : Int
+capMultiple = 3
+
+-- | Bonus per eligible importer, in micro-USDCx, in the same order as the input.
+--
+-- The input is each importer's reserved milli-CBM. Because locked amount = reserved × rate
+-- for one shared rate, P·L_i/ΣL = P·R_i/ΣR exactly, so the result equals the formula in
+-- section 17.2. Working in milli-CBM keeps the intermediate product far from Int overflow.
+--
+-- * |E| = 0: no bonuses.
+-- * |E| < 3: equal split, ⌊P/|E|⌋ each.
+-- * |E| ≥ 3: min(⌊P·R_i/ΣR⌋, 3·⌊P/|E|⌋).
+--
+-- Every amount rounds down; the remainder is dust that returns to the forwarder.
+computeBonuses : Int -> [Int] -> [Int]
+computeBonuses _ [] = []
+computeBonuses pool reserved =
+  -- Daml is strict: every binding is evaluated, so the empty case is handled above
+  -- rather than guarded here (otherwise P/|E| would divide by zero).
+  let n = length reserved
+      total = sum reserved
+      equalShare = pool / n
+      cap = capMultiple * equalShare
+  in if n < proportionalMinimumEligible
+     then map (const equalShare) reserved
+     else map (\r -> min ((pool * r) / total) cap) reserved
+
+-- | Dust D = P − Σ B_i.
+bonusDust : Int -> [Int] -> Int
+bonusDust pool bonuses = pool - sum bonuses

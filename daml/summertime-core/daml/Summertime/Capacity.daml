@@ -1,0 +1,47 @@
+-- | On-ledger capacity accounting (specification F-3).
+--
+-- Capacity is held on the co-signed 'Campaign' in a transaction the importer cannot see.
+-- The importer only ever sees a 'CapacityHold' for its own size, never the running total.
+module Summertime.Capacity where
+
+-- | Capacity reserved on the campaign for one pending reservation request.
+-- Signed by forwarder and operator, so the forwarder cannot create one without the
+-- campaign's capacity check.
+template CapacityHold with
+    forwarder : Party
+    operator : Party
+    campaignId : Text
+    reservedMilliCbm : Int
+  where
+    signatory forwarder, operator
+    ensure reservedMilliCbm > 0
+
+    -- | Used by 'ReservationRequest_Countersign' and 'Campaign_ReleaseCapacity'.
+    choice CapacityHold_Consume : ()
+      controller forwarder
+      do pure ()
+
+-- | Capacity freed by an expired reservation or a withdrawn commitment.
+-- The importer co-signs it, so the forwarder cannot free an active reservation's
+-- capacity to overbook the container.
+template CapacityRelease with
+    importer : Party
+    forwarder : Party
+    operator : Party
+      -- ^ Identifies the campaign together with 'campaignId'; not a stakeholder.
+    campaignId : Text
+    reservedMilliCbm : Int
+  where
+    signatory importer, forwarder
+    ensure reservedMilliCbm > 0
+
+    -- | Used by 'Campaign_ReleaseCapacity'.
+    choice CapacityRelease_Consume : ()
+      controller forwarder
+      do pure ()
+
+-- | What 'Campaign_ReleaseCapacity' may return to the campaign.
+data ReleaseSource
+  = FromUnusedHold (ContractId CapacityHold)
+  | FromRelease (ContractId CapacityRelease)
+  deriving (Eq, Show)

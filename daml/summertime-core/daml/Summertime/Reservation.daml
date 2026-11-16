@@ -1,0 +1,198 @@
+-- | Invitations, reservation requests and capacity reservations (specification F-2 to F-4).
+module Summertime.Reservation where
+
+import DA.TextMap qualified as TextMap
+
+import Splice.Api.Token.MetadataV1 (ChoiceExecutionMetadata(..), emptyMetadata)
+import Splice.Api.Token.AllocationV1
+import Splice.Api.Token.AllocationRequestV1
+
+import Summertime.Capacity
+import Summertime.Settlement
+import Summertime.Types
+
+-- | Campaign terms delivered privately to one importer (F-2, privacy rule P-3).
+template Invitation with
+    forwarder : Party
+    operator : Party
+    importer : Party
+    campaignId : Text
+    invitationId : Text
+    terms : CampaignTerms
+  where
+    signatory forwarder
+    observer importer
+
+    choice Invitation_RequestReservation : ContractId ReservationRequest
+      with
+        reservedMilliCbm : Int
+      controller importer
+      do
+        now <- getTime
+        require "invitation has not expired (lockTime)" (now < terms.lockTime)
+        require "reservation is within the campaign's bounds" (reservationInBounds terms reservedMilliCbm)
+        create ReservationRequest with
+          importer; forwarder; operator; campaignId
+          reservationId = invitationId
+          terms
+          reservedMilliCbm
+
+    choice Invitation_Decline : ()
+      controller importer
+      do pure ()
+
+    choice Invitation_Revoke : ()
+      controller forwarder
+      do pure ()
+
+-- | An importer's request for space, awaiting the forwarder's countersignature (F-3).
+template ReservationRequest with
+    importer : Party
+    forwarder : Party
+    operator : Party
+    campaignId : Text
+    reservationId : Text
+    terms : CampaignTerms
+    reservedMilliCbm : Int
+  where
+    signatory importer
+    observer forwarder
+
+    -- | Turn the request into a fixed-price reservation.
+    --
+    -- Takes a 'CapacityHold' created by 'Campaign_HoldCapacity' in a separate transaction.
+    -- The importer sees this whole exercise, so it must carry no running total (P-6): the
+    -- hold contains only this importer's own size.
+    choice ReservationRequest_Countersign : (ContractId CapacityReservation, ContractId SummertimeAllocationRequest)
+      with
+        holdCid : ContractId CapacityHold
+      controller forwarder
+      do
+        now <- getTime
+        require "countersignature before lockTime" (now < terms.lockTime)
+        hold <- fetch holdCid
+        require "capacity hold matches this request"
+          (hold.campaignId == campaignId
+            && hold.forwarder == forwarder
+            && hold.operator == operator
+            && hold.reservedMilliCbm == reservedMilliCbm)
+        exercise holdCid CapacityHold_Consume
+        let lockedMicroUsdc = lockedAmountMicroUsdc terms reservedMilliCbm
+            transferLegId = transferLegIdFor campaignId reservationId
+        amount <- toTokenDecimalU terms.tokenDecimals lockedMicroUsdc
+        let settlement = expectedSettlement forwarder campaignId terms now
+            transferLeg = TransferLeg with
+              sender = importer
+              receiver = forwarder
+              amount
+              instrumentId = terms.instrumentId
+              meta = emptyMetadata
+        reservationCid <- create CapacityReservation with
+          forwarder; importer; operator; campaignId; reservationId
+          reservedMilliCbm; lockedMicroUsdc; transferLegId
+          requestedAt = now
+          terms
+        requestCid <- create SummertimeAllocationRequest with
+          forwarder; importer; settlement; transferLegId; transferLeg
+        pure (reservationCid, requestCid)
+
+    choice ReservationRequest_Reject : ()
+      with
+        reason : Text
+      controller forwarder
+      do pure ()
+
+-- | Forwarder-countersigned, fixed-price capacity reservation (Decision 2).
+template CapacityReservation with
+    forwarder : Party
+    importer : Party
+    operator : Party
+    campaignId : Text
+    reservationId : Text
+    reservedMilliCbm : Int
+    lockedMicroUsdc : Int
+    transferLegId : Text
+    requestedAt : Time
+    terms : CampaignTerms
+  where
+    signatory forwarder, importer
+    ensure lockedMicroUsdc == lockedAmountMicroUsdc terms reservedMilliCbm
+
+    -- | Bind the importer's allocation to this reservation (F-4).
+    --
+    -- Checks every field of the allocation's settlement info and transfer leg, including
+    -- 'allocateBefore' and 'settleBefore'. Without the 'settleBefore' check an importer
+    -- could commit an allocation that expires early, break settlement and collect a bonus.
+    choice CapacityReservation_Commit : (ContractId Commitment, ContractId BondTicket)
+      with
+        allocationCid : ContractId Allocation
+      controller importer
+      do
+        now <- getTime
+        require "commit before lockTime" (now < terms.lockTime)
+        allocation <- fetch allocationCid
+        let spec = (view allocation).allocation
+            s = spec.settlement
+            leg = spec.transferLeg
+        expectedAmount <- toTokenDecimalU terms.tokenDecimals lockedMicroUsdc
+        require "executor is the forwarder" (s.executor == forwarder)
+        require "settlement reference is this campaign"
+          (s.settlementRef.id == settlementRefId campaignId && s.settlementRef.cid == None)
+        require "requestedAt matches the reservation" (s.requestedAt == requestedAt)
+        require "allocateBefore equals lockTime" (s.allocateBefore == terms.lockTime)
+        require "settleBefore equals the deadline" (s.settleBefore == terms.deadline)
+        require "transfer leg ID matches" (spec.transferLegId == transferLegId)
+        require "sender is the importer" (leg.sender == importer)
+        require "receiver is the forwarder" (leg.receiver == forwarder)
+        require "instrument matches the campaign" (leg.instrumentId == terms.instrumentId)
+        require "amount equals reserved milli-CBM x rate" (leg.amount == expectedAmount)
+        commitmentCid <- create Commitment with
+          importer; forwarder; operator; campaignId; reservationId
+          reservedMilliCbm; lockedMicroUsdc; allocationCid; terms
+        ticketCid <- create BondTicket with
+          importer; forwarder; operator; campaignId; reservationId; commitmentCid
+          reservedMilliCbm; terms
+        pure (commitmentCid, ticketCid)
+
+    -- | An uncommitted reservation lapses at 'lockTime' and frees its capacity.
+    choice CapacityReservation_Expire : ContractId CapacityRelease
+      with
+        actor : Party
+      controller actor
+      do
+        require "actor is the forwarder or the importer" (actor == forwarder || actor == importer)
+        now <- getTime
+        require "reservation expires only at or after lockTime" (now >= terms.lockTime)
+        create CapacityRelease with importer; forwarder; operator; campaignId; reservedMilliCbm
+
+-- | The CIP-56 settlement info every allocation for this campaign must carry (section 15.2).
+expectedSettlement : Party -> Text -> CampaignTerms -> Time -> SettlementInfo
+expectedSettlement forwarder campaignId terms requestedAt = SettlementInfo with
+  executor = forwarder
+  settlementRef = Reference with id = settlementRefId campaignId; cid = None
+  requestedAt
+  allocateBefore = terms.lockTime
+  settleBefore = terms.deadline
+  meta = emptyMetadata
+
+-- | Published for the importer's wallet: one transfer leg, importer to forwarder.
+template SummertimeAllocationRequest with
+    forwarder : Party
+    importer : Party
+    settlement : SettlementInfo
+    transferLegId : Text
+    transferLeg : TransferLeg
+  where
+    signatory forwarder
+    observer importer
+
+    interface instance AllocationRequest for SummertimeAllocationRequest where
+      view = AllocationRequestView with
+        settlement
+        transferLegs = TextMap.fromList [(transferLegId, transferLeg)]
+        meta = emptyMetadata
+      allocationRequest_RejectImpl _self AllocationRequest_Reject{actor} = do
+        require "only the importer can reject its allocation request" (actor == importer)
+        pure ChoiceExecutionMetadata with meta = emptyMetadata
+      allocationRequest_WithdrawImpl _self _arg =
+        pure ChoiceExecutionMetadata with meta = emptyMetadata

@@ -1,0 +1,276 @@
+-- | Authorization, adversarial and privacy tests (specification 26.1 and 26.2).
+module Summertime.Test.Guards where
+
+import DA.Assert ((===))
+import DA.Foldable (forA_)
+import DA.Time (hours, addRelTime)
+import Daml.Script
+
+import Splice.Api.Token.AllocationV1
+
+import Summertime.Bonus
+import Summertime.Campaign
+import Summertime.Capacity
+import Summertime.Records
+import Summertime.Reservation
+import Summertime.Settlement
+import Summertime.Types
+import Summertime.Test.Setup
+
+-- Authorization ---------------------------------------------------------------
+
+-- | The settlement guard: the forwarder alone cannot settle a commitment, so it cannot
+-- take an importer's funds without going through Campaign_Execute's threshold check.
+test_forwarderCannotSettleAlone : Script ()
+test_forwarderCannotSettleAlone = do
+  env <- setupEnv
+  let a = importerAt env 0
+  (_, _, [j]) <- campaignWith env "c-guard" [(a, 4000)]
+  submitMustFail env.forwarder $ exerciseCmd j.commitmentCid Commitment_Settle with
+    settleCampaignId = "c-guard"
+    settleTerms = env.terms
+    bonusRef = TicketRef j.ticketCid
+    extraArgs = noExtraArgs
+  -- Nor can the operator, nor the two of them outside a campaign.
+  submitMustFail env.operator $ exerciseCmd j.commitmentCid Commitment_Settle with
+    settleCampaignId = "c-guard"
+    settleTerms = env.terms
+    bonusRef = TicketRef j.ticketCid
+    extraArgs = noExtraArgs
+  -- The importer's funds are still allocated.
+  Some _ <- queryInterfaceContractId a j.allocationCid
+  pure ()
+
+-- | The forwarder cannot create the contracts that carry the operator's authority.
+test_forwarderCannotForgeGuardedContracts : Script ()
+test_forwarderCannotForgeGuardedContracts = do
+  env <- setupEnv
+  let a = importerAt env 0
+  (campaignCid, bondCid) <- openCampaign env "c-forge"
+  -- A second campaign with an easier threshold needs the operator's signature.
+  submitMustFail env.forwarder $ createCmd Campaign with
+    forwarder = env.forwarder; operator = env.operator; auditor = None
+    campaignId = "c-forge"; terms = env.terms with thresholdMilliCbm = 1000
+    heldMilliCbm = 0; bondCid
+  submitMustFail env.forwarder $ createCmd OrganizerBond with
+    forwarder = env.forwarder; operator = env.operator; campaignId = "c-forge2"; terms = env.terms; locked = False
+  submitMustFail env.forwarder $ createCmd CapacityHold with
+    forwarder = env.forwarder; operator = env.operator; campaignId = "c-forge"; reservedMilliCbm = 5000
+  submitMustFail env.forwarder $ createCmd CapacityRelease with
+    importer = a; forwarder = env.forwarder; operator = env.operator; campaignId = "c-forge"; reservedMilliCbm = 5000
+  -- The forwarder cannot run the bond lock.
+  setTime env.terms.lockTime
+  submitMustFail env.forwarder $ exerciseCmd bondCid OrganizerBond_Lock with ticketCids = []
+  -- The operator cannot execute settlement.
+  submitMustFail env.operator $ exerciseCmd campaignCid Campaign_Execute with included = []
+
+-- | Neither forwarder nor operator alone can mint or void bonus records.
+test_bonusRecordsNeedTheRightParties : Script ()
+test_bonusRecordsNeedTheRightParties = do
+  env <- setupEnv
+  let a = importerAt env 0
+      b = importerAt env 1
+  (_, bondCid, [ja, jb]) <- campaignWith env "c-bonus" [(a, 4000), (b, 4000)]
+  submitMustFail env.forwarder $ exerciseCmd ja.ticketCid BondTicket_Void
+  submitMustFail env.operator $ exerciseCmd ja.ticketCid BondTicket_Convert with bonusMicroUsdc = 1
+  submitMustFail env.forwarder $ exerciseCmd ja.ticketCid BondTicket_Convert with bonusMicroUsdc = 1
+  toLockTime env
+  (_, [ea, _]) <- submit env.operator $ exerciseCmd bondCid OrganizerBond_Lock with
+    ticketCids = [ja.ticketCid, jb.ticketCid]
+  submitMustFail env.forwarder $ exerciseCmd ea BonusEntitlement_Void
+  submitMustFail env.operator $ exerciseCmd ea BonusEntitlement_Void
+  submitMustFail env.operator $ exerciseCmd ea BonusEntitlement_Expire
+
+-- Adversarial ----------------------------------------------------------------
+
+-- | Each allocation field that does not match the reservation is rejected at commit,
+-- including an allocation that expires before the deadline (fix 4 in v1.1).
+test_commitRejectsMismatchedAllocations : Script ()
+test_commitRejectsMismatchedAllocations = do
+  env <- setupEnv
+  let a = importerAt env 0
+  (campaignCid, _) <- openCampaign env "c-mismatch"
+  let tweaks =
+        [ ("early settleBefore", \s -> s with settlement = s.settlement with settleBefore = env.terms.lockTime `addRelTime` hours 1)
+        , ("late allocateBefore", \s -> s with settlement = s.settlement with allocateBefore = env.terms.lockTime `addRelTime` hours 1)
+        , ("wrong executor", \s -> s with settlement = s.settlement with executor = a)
+        , ("wrong reference", \s -> s with settlement = s.settlement with settlementRef = (s.settlement.settlementRef with id = "other"))
+        , ("wrong leg ID", \s -> s with transferLegId = "other")
+        , ("wrong receiver", \s -> s with transferLeg = s.transferLeg with receiver = env.outsider)
+        , ("short amount", \s -> s with transferLeg = s.transferLeg with amount = s.transferLeg.amount - 1.0)
+        ]
+  invitationCids <- invite env campaignCid (replicate (length tweaks) a)
+  let step cid ((_, tweak), inv) = do
+        (cid', reservationCid, requestCid) <- reserve env cid inv a 1000
+        allocationCid <- allocateWith env a requestCid tweak
+        submitMustFail a $ exerciseCmd reservationCid CapacityReservation_Commit with allocationCid
+        pure cid'
+  _ <- foldScript step campaignCid (zip tweaks invitationCids)
+  pure ()
+
+-- | Capacity is enforced on-ledger: the container cannot be overbooked.
+test_capacityCannotBeOverbooked : Script ()
+test_capacityCannotBeOverbooked = do
+  env <- setupEnv
+  (campaignCid, _, _) <- campaignWith env "c-cap" (fullContainer env)
+  Some campaign <- queryContractId env.forwarder campaignCid
+  campaign.heldMilliCbm === 60000
+  submitMustFail env.forwarder $ exerciseCmd campaignCid Campaign_HoldCapacity with size = 1000
+  -- Out-of-bounds requests are rejected before any capacity is held.
+  (campaignCid2, _) <- openCampaign env "c-cap2"
+  [inv] <- invite env campaignCid2 [importerAt env 0]
+  submitMustFail (importerAt env 0) $ exerciseCmd inv Invitation_RequestReservation with reservedMilliCbm = 999
+  submitMustFail (importerAt env 0) $ exerciseCmd inv Invitation_RequestReservation with reservedMilliCbm = 15001
+
+-- | Threshold and deadline guards on settlement.
+test_executeGuards : Script ()
+test_executeGuards = do
+  env <- setupEnv
+  (campaignCid, _, joined) <- campaignWith env "c-exec" (fullContainer env)
+  -- One milli-CBM short: leaving out any importer drops below the 60 CBM threshold.
+  submitMustFail env.forwarder $ exerciseCmd campaignCid Campaign_Execute with
+    included = settleLegsWithTickets (drop 1 joined)
+  -- Duplicates are rejected.
+  submitMustFail env.forwarder $ exerciseCmd campaignCid Campaign_Execute with
+    included = settleLegsWithTickets (joined <> take 1 joined)
+  -- A leg paired with another importer's ticket is rejected.
+  let [j1, j2] = take 2 joined
+      swapped = SettleLeg with commitmentCid = j1.commitmentCid; bonusRef = TicketRef j2.ticketCid; extraArgs = noExtraArgs
+  submitMustFail env.forwarder $ exerciseCmd campaignCid Campaign_Execute with
+    included = swapped :: settleLegsWithTickets (drop 1 joined)
+  -- At the deadline, settlement is no longer possible.
+  toDeadline env
+  submitMustFail env.forwarder $ exerciseCmd campaignCid Campaign_Execute with
+    included = settleLegsWithTickets joined
+
+-- | Time guards: no commit or Summertime withdrawal after lockTime; no early claim.
+test_timeGuards : Script ()
+test_timeGuards = do
+  env <- setupEnv
+  let a = importerAt env 0
+      b = importerAt env 1
+  (campaignCid, bondCid, [ja]) <- campaignWith env "c-time" [(a, 4000)]
+  [inv] <- invite env campaignCid [b]
+  (_, reservationB, requestB) <- reserve env campaignCid inv b 4000
+  allocationB <- allocate env b requestB
+  toLockTime env
+  submitMustFail b $ exerciseCmd reservationB CapacityReservation_Commit with allocationCid = allocationB
+  submitMustFail a $ exerciseCmd ja.commitmentCid Commitment_Withdraw with ticketCid = ja.ticketCid; extraArgs = noExtraArgs
+  (_, [ea]) <- submit env.operator $ exerciseCmd bondCid OrganizerBond_Lock with ticketCids = [ja.ticketCid]
+  submitMustFail a $ exerciseCmd ea BonusEntitlement_Claim with extraArgs = noExtraArgs
+  -- The forwarder cannot release a commitment while its bonus is claimable.
+  toDeadline env
+  submitMustFail env.forwarder $ exerciseCmd ja.commitmentCid Commitment_Release with
+    actor = env.forwarder; cancelAllocation = True; extraArgs = noExtraArgs
+  -- Another importer cannot claim A's bonus.
+  submitMustFail b $ exerciseCmd ea BonusEntitlement_Claim with extraArgs = noExtraArgs
+  -- A claims once; a second claim fails.
+  _ <- submit a $ exerciseCmd ea BonusEntitlement_Claim with extraArgs = noExtraArgs
+  submitMustFail a $ exerciseCmd ea BonusEntitlement_Claim with extraArgs = noExtraArgs
+
+-- | UC-4: an importer that withdraws its allocation through the registry after lock
+-- cannot claim a bonus.
+test_lateRegistryWithdrawalForfeitsBonus : Script ()
+test_lateRegistryWithdrawalForfeitsBonus = do
+  env <- setupEnv
+  let a = importerAt env 0
+  (_, bondCid, [ja]) <- campaignWith env "c-late" [(a, 4000)]
+  toLockTime env
+  (_, [ea]) <- submit env.operator $ exerciseCmd bondCid OrganizerBond_Lock with ticketCids = [ja.ticketCid]
+  _ <- submit a $ exerciseCmd ja.allocationCid Allocation_Withdraw with extraArgs = noExtraArgs
+  toDeadline env
+  submitMustFail a $ exerciseCmd ea BonusEntitlement_Claim with extraArgs = noExtraArgs
+
+-- | The bond lock runs once, only after lockTime, and rejects duplicate tickets.
+test_lockGuards : Script ()
+test_lockGuards = do
+  env <- setupEnv
+  let a = importerAt env 0
+  (_, bondCid, [ja]) <- campaignWith env "c-lock" [(a, 4000)]
+  submitMustFail env.operator $ exerciseCmd bondCid OrganizerBond_Lock with ticketCids = [ja.ticketCid]
+  toLockTime env
+  submitMustFail env.operator $ exerciseCmd bondCid OrganizerBond_Lock with ticketCids = [ja.ticketCid, ja.ticketCid]
+  (lockedCid, _) <- submit env.operator $ exerciseCmd bondCid OrganizerBond_Lock with ticketCids = [ja.ticketCid]
+  submitMustFail env.operator $ exerciseCmd lockedCid OrganizerBond_Lock with ticketCids = []
+
+-- Privacy (ledger views; transaction-tree tests run on LocalNet, spec 26.2) --------
+
+test_importersCannotSeeEachOther : Script ()
+test_importersCannotSeeEachOther = do
+  env <- setupEnv
+  let a = importerAt env 0
+      b = importerAt env 1
+  (campaignCid, bondCid, [ja, jb]) <- campaignWith env "c-privacy" [(a, 4000), (b, 5000)]
+  -- B cannot see any of A's contracts.
+  None <- queryContractId b ja.commitmentCid
+  None <- queryContractId b ja.ticketCid
+  None <- queryInterfaceContractId b ja.allocationCid
+  -- Importers are never stakeholders of the campaign or the bond (P-1).
+  forA_ [a, b] \p -> do
+    None <- queryContractId p campaignCid
+    None <- queryContractId p bondCid
+    [] <- query @Campaign p
+    [] <- query @CapacityHold p
+    pure ()
+  -- Each importer sees exactly one invitation, its own (P-3, P-5).
+  invsA <- query @Invitation a
+  map (\(_, i) -> i.importer) invsA === []  -- consumed by the request
+  -- Each importer sees only its own commitment and ticket.
+  commitmentsB <- query @Commitment b
+  map (\(_, c) -> c.importer) commitmentsB === [b]
+  ticketsB <- query @BondTicket b
+  map (\(_, t) -> t.importer) ticketsB === [b]
+  -- Bonus entitlements: one per importer, one importer each.
+  toLockTime env
+  _ <- submit env.operator $ exerciseCmd bondCid OrganizerBond_Lock with ticketCids = [ja.ticketCid, jb.ticketCid]
+  entsB <- query @BonusEntitlement b
+  map (\(_, e) -> e.importer) entsB === [b]
+  -- The operator is not a stakeholder of reservations or commitments.
+  [] <- query @CapacityReservation env.operator
+  [] <- query @Commitment env.operator
+  pure ()
+
+-- | Progress: one view per importer, rounded, hidden below three participants (P-4).
+test_progressViewsArePerImporter : Script ()
+test_progressViewsArePerImporter = do
+  env <- setupEnv
+  now <- getTime
+  let [a, b] = take 2 env.importers
+  progressSnapshot now True 54321 2 === ProgressSnapshot with reservedCbmRounded = 0; participantCount = None; hidden = True; asOf = now
+  progressSnapshot now True 54321 5 === ProgressSnapshot with reservedCbmRounded = 54; participantCount = Some 5; hidden = False; asOf = now
+  progressSnapshot now False 54321 5 === ProgressSnapshot with reservedCbmRounded = 54; participantCount = None; hidden = False; asOf = now
+  forA_ [a, b] \p -> submit env.forwarder $ createCmd ProgressView with
+    forwarder = env.forwarder; importer = p; campaignId = "c"; reservedCbmRounded = 0
+    participantCount = None; hidden = True; asOf = now
+  viewsB <- query @ProgressView b
+  map (\(_, v) -> v.importer) viewsB === [b]
+  -- A hidden view cannot carry numbers.
+  submitMustFail env.forwarder $ createCmd ProgressView with
+    forwarder = env.forwarder; importer = a; campaignId = "c"; reservedCbmRounded = 54
+    participantCount = None; hidden = True; asOf = now
+
+-- Arithmetic -------------------------------------------------------------------
+
+test_bonusArithmetic : Script ()
+test_bonusArithmetic = do
+  -- Section 17.6: five importers, 54 CBM, 200 USDCx.
+  let bonuses = computeBonuses 200000000 [14000, 12000, 11000, 9000, 8000]
+  bonuses === [51851851, 44444444, 40740740, 33333333, 29629629]
+  bonusDust 200000000 bonuses === 3
+  -- Equal split below three eligible importers.
+  computeBonuses 200000000 [50000, 1000] === [100000000, 100000000]
+  computeBonuses 200000000 [] === []
+  -- Cap: 3 × ⌊P/|E|⌋.
+  computeBonuses 300 [1000000, 1, 1, 1] === [225, 0, 0, 0]
+  -- Conservation over many shapes.
+  forA_ [[1000, 2000, 3000], [15000, 1000, 1000, 1000], [7000, 7000, 7000, 7000, 7000, 7000, 7000]] \rs -> do
+    let bs = computeBonuses 123456789 rs
+    assertMsg "bonuses never exceed the pool" (sum bs <= 123456789 && all (>= 0) bs)
+
+test_tokenDecimalConversion : Script ()
+test_tokenDecimalConversion = do
+  toTokenDecimal 6 2100000000 === Right 2100.0
+  toTokenDecimal 10 1 === Right 0.000001
+  toTokenDecimal 2 1234567 === Left "Amount 1234567 micro-units is not representable with 2 decimals"
+  toTokenDecimal 2 1230000 === Right 1.23
+  assertMsg "negative amounts rejected" (not (isRight (toTokenDecimal 6 (-1))))

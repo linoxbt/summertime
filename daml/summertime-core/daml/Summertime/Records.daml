@@ -1,0 +1,92 @@
+-- | Outcome, receipt and progress records (specification F-6, F-11, section 13.2).
+module Summertime.Records where
+
+import DA.Optional (optionalToList)
+
+import Summertime.Types
+
+-- | How a campaign ended. Co-signed, so the forwarder cannot fabricate an outcome.
+template CampaignOutcome with
+    forwarder : Party
+    operator : Party
+    auditor : Optional Party
+    campaignId : Text
+    result : Outcome
+    settledMilliCbm : Int
+    settledMicroUsdc : Int
+    legCount : Int
+  where
+    signatory forwarder, operator
+    observer optionalToList auditor
+
+-- | A private record for one importer. Convenience only: the authoritative evidence is the
+-- update ID, which the importer can look up in its own ledger view.
+template Receipt with
+    forwarder : Party
+    importer : Party
+    campaignId : Text
+    reservationId : Text
+    kind : ReceiptKind
+    reservedMilliCbm : Int
+    amountMicroUsdc : Int
+    note : Text
+  where
+    signatory forwarder
+    observer importer
+
+-- | Aggregate progress for exactly one importer (privacy rule P-4).
+--
+-- One contract per importer, so no importer sees another's identity in an observer list.
+-- Published on a fixed schedule, rounded down to whole CBM, and hidden below three
+-- committed importers.
+template ProgressView with
+    forwarder : Party
+    importer : Party
+    campaignId : Text
+    reservedCbmRounded : Int
+    participantCount : Optional Int
+    hidden : Bool
+    asOf : Time
+  where
+    signatory forwarder
+    observer importer
+    ensure
+      reservedCbmRounded >= 0
+      && (not hidden || (reservedCbmRounded == 0 && participantCount == None))
+
+    choice ProgressView_Supersede : ContractId ProgressView
+      with
+        snapshot : ProgressSnapshot
+      controller forwarder
+      do
+        require "progress moves forward in time" (snapshot.asOf > asOf)
+        create this with
+          reservedCbmRounded = snapshot.reservedCbmRounded
+          participantCount = snapshot.participantCount
+          hidden = snapshot.hidden
+          asOf = snapshot.asOf
+
+-- | One scheduled progress reading, as shown to every invited importer.
+data ProgressSnapshot = ProgressSnapshot with
+    reservedCbmRounded : Int
+    participantCount : Optional Int
+    hidden : Bool
+    asOf : Time
+  deriving (Eq, Show)
+
+-- | Minimum committed importers before progress is shown (F-6).
+progressMinimumParticipants : Int
+progressMinimumParticipants = 3
+
+-- | Build the reading every importer sees from the forwarder's own totals.
+-- Rounds committed capacity down to whole CBM and hides it below three participants.
+progressSnapshot : Time -> Bool -> Int -> Int -> ProgressSnapshot
+progressSnapshot asOf showCount committedMilliCbm committedCount
+  | committedCount < progressMinimumParticipants =
+      ProgressSnapshot with reservedCbmRounded = 0; participantCount = None; hidden = True; asOf
+  | otherwise =
+      ProgressSnapshot with
+        reservedCbmRounded = committedMilliCbm / 1000
+        participantCount = if showCount then Some committedCount else None
+        hidden = False
+        asOf

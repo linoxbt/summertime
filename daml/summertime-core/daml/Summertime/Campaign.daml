@@ -1,0 +1,255 @@
+-- | Campaign proposal, the co-signed campaign and the failure bond
+-- (specification F-1, F-3, F-7, F-8, sections 13 and 14).
+module Summertime.Campaign where
+
+import DA.Foldable (forA_)
+
+import Splice.Api.Token.MetadataV1 (ExtraArgs, emptyMetadata)
+import Splice.Api.Token.HoldingV1 (Holding)
+import Splice.Api.Token.TransferInstructionV1
+import DA.Time (days, addRelTime)
+
+import Summertime.Bonus
+import Summertime.Capacity
+import Summertime.Records
+import Summertime.Reservation
+import Summertime.Settlement
+import Summertime.Types
+
+-- | A forwarder's proposed campaign. The operator accepts it once the bond has arrived,
+-- creating 'Campaign' and 'OrganizerBond' together (F-1).
+template CampaignProposal with
+    forwarder : Party
+    operator : Party
+    auditor : Optional Party
+    campaignId : Text
+    terms : CampaignTerms
+  where
+    signatory forwarder
+    observer operator
+    ensure campaignId /= "" && forwarder /= operator && validTerms terms
+
+    -- | Operator automation calls this only after checking, from its own view, that the
+    -- campaign ID is unused (Daml 3 has no contract keys) and the bond holdings arrived.
+    choice CampaignProposal_Accept : (ContractId Campaign, ContractId OrganizerBond)
+      with
+        bondHoldingCids : [ContractId Holding]
+      controller operator
+      do
+        require "bond holdings are listed once each" (allUnique bondHoldingCids)
+        holdings <- forA bondHoldingCids (\cid -> view <$> fetch cid)
+        require "bond holdings are owned by the operator, unlocked, in the campaign's instrument"
+          (all (\h -> h.owner == operator && h.instrumentId == terms.instrumentId && h.lock == None) holdings)
+        bondAmount <- toTokenDecimalU terms.tokenDecimals terms.bondMicroUsdc
+        require "bond holdings total the bond" (sum (map (.amount) holdings) == bondAmount)
+        bondCid <- create OrganizerBond with forwarder; operator; campaignId; terms; locked = False
+        campaignCid <- create Campaign with
+          forwarder; operator; auditor; campaignId; terms; bondCid
+          heldMilliCbm = 0
+        pure (campaignCid, bondCid)
+
+    -- | Invalid terms or no bond. The operator returns any bond holdings off-contract.
+    choice CampaignProposal_Reject : ()
+      with
+        reason : Text
+      controller operator
+      do pure ()
+
+    choice CampaignProposal_Withdraw : ()
+      controller forwarder
+      do pure ()
+
+-- | An open campaign, signed by forwarder and operator.
+--
+-- The operator's signature is the settlement guard: it is what lets 'Campaign_Execute'
+-- exercise 'Commitment_Settle', and it stops the forwarder creating a second campaign
+-- with easier terms. Importers are never stakeholders (privacy rule P-1).
+template Campaign with
+    forwarder : Party
+    operator : Party
+    auditor : Optional Party
+    campaignId : Text
+    terms : CampaignTerms
+    heldMilliCbm : Int
+      -- ^ Capacity held for countersigned reservations; never shown to importers.
+    bondCid : ContractId OrganizerBond
+  where
+    signatory forwarder, operator
+    ensure
+      validTerms terms
+      && heldMilliCbm >= 0
+      && heldMilliCbm <= terms.containerCapacityMilliCbm
+
+    -- | One private invitation per importer (F-2).
+    nonconsuming choice Campaign_Invite : [ContractId Invitation]
+      with
+        invitees : [Invitee]
+      controller forwarder
+      do
+        now <- getTime
+        require "invitations only before lockTime" (now < terms.lockTime)
+        require "invitation IDs are unique" (allUnique (map (.invitationId) invitees))
+        forA invitees \invitee -> do
+          require "an importer is neither the forwarder nor the operator"
+            (invitee.importer /= forwarder && invitee.importer /= operator)
+          create Invitation with
+            forwarder; operator; campaignId; terms
+            importer = invitee.importer
+            invitationId = invitee.invitationId
+
+    -- | Hold capacity for one request, in a transaction the importer cannot see (F-3).
+    choice Campaign_HoldCapacity : (ContractId Campaign, ContractId CapacityHold)
+      with
+        size : Int
+      controller forwarder
+      do
+        now <- getTime
+        require "capacity is held only before lockTime" (now < terms.lockTime)
+        require "reservation is within the campaign's bounds" (reservationInBounds terms size)
+        require "container capacity is not exceeded" (heldMilliCbm + size <= terms.containerCapacityMilliCbm)
+        holdCid <- create CapacityHold with forwarder; operator; campaignId; reservedMilliCbm = size
+        campaignCid <- create this with heldMilliCbm = heldMilliCbm + size
+        pure (campaignCid, holdCid)
+
+    -- | Return capacity from an unused hold, or from an importer-co-signed release.
+    choice Campaign_ReleaseCapacity : ContractId Campaign
+      with
+        source : ReleaseSource
+      controller forwarder
+      do
+        size <- case source of
+          FromUnusedHold holdCid -> do
+            hold <- fetch holdCid
+            require "hold belongs to this campaign"
+              (hold.campaignId == campaignId && hold.forwarder == forwarder && hold.operator == operator)
+            exercise holdCid CapacityHold_Consume
+            pure hold.reservedMilliCbm
+          FromRelease releaseCid -> do
+            release <- fetch releaseCid
+            require "release belongs to this campaign"
+              (release.campaignId == campaignId && release.forwarder == forwarder && release.operator == operator)
+            exercise releaseCid CapacityRelease_Consume
+            pure release.reservedMilliCbm
+        create this with heldMilliCbm = heldMilliCbm - size
+
+    -- | Settle every included commitment in one transaction (F-8).
+    choice Campaign_Execute : ContractId CampaignOutcome
+      with
+        included : [SettleLeg]
+      controller forwarder
+      do
+        now <- getTime
+        require "settlement before the deadline" (now < terms.deadline)
+        let commitmentCids = map (.commitmentCid) included
+        require "at least one commitment" (not (null commitmentCids))
+        require "each commitment is included once" (allUnique commitmentCids)
+        commitments <- forA commitmentCids fetch
+        forA_ commitments \c ->
+          require "commitment belongs to this campaign"
+            (c.campaignId == campaignId && c.forwarder == forwarder
+              && c.operator == operator && c.terms == terms)
+        let settledMilliCbm = sum (map (.reservedMilliCbm) commitments)
+            settledMicroUsdc = sum (map (.lockedMicroUsdc) commitments)
+        require "threshold is met" (settledMilliCbm >= terms.thresholdMilliCbm)
+        forA_ included \leg ->
+          exercise leg.commitmentCid Commitment_Settle with
+            settleCampaignId = campaignId
+            settleTerms = terms
+            bonusRef = leg.bonusRef
+            extraArgs = leg.extraArgs
+        create CampaignOutcome with
+          forwarder; operator; auditor; campaignId
+          result = Succeeded
+          settledMilliCbm; settledMicroUsdc
+          legCount = length commitments
+
+    -- | Record failure after the deadline. Claims do not depend on it; the operator may
+    -- call it if the forwarder does not, so that the bond can be returned.
+    choice Campaign_Fail : ContractId CampaignOutcome
+      with
+        actor : Party
+      controller actor
+      do
+        require "actor is the forwarder or the operator" (actor == forwarder || actor == operator)
+        now <- getTime
+        require "campaign fails only at or after the deadline" (now >= terms.deadline)
+        create CampaignOutcome with
+          forwarder; operator; auditor; campaignId
+          result = Failed
+          settledMilliCbm = 0; settledMicroUsdc = 0; legCount = 0
+
+    -- | Cancel at no cost while no capacity is held. Once any is held, the campaign runs
+    -- to its deadline (no early cancellation in the MVP).
+    choice Campaign_Cancel : ContractId CampaignOutcome
+      controller forwarder
+      do
+        require "no capacity is held" (heldMilliCbm == 0)
+        create CampaignOutcome with
+          forwarder; operator; auditor; campaignId
+          result = Cancelled
+          settledMilliCbm = 0; settledMicroUsdc = 0; legCount = 0
+
+-- | The failure bond. The operator owns the bond holdings (custody is trust, section 10.4);
+-- this contract records the obligation and runs the lock.
+template OrganizerBond with
+    forwarder : Party
+    operator : Party
+    campaignId : Text
+    terms : CampaignTerms
+    locked : Bool
+  where
+    signatory forwarder, operator
+
+    -- | Freeze the eligible set at 'lockTime' (F-7). Operator only; the forwarder takes no
+    -- part. Operator automation passes every live 'BondTicket' for the campaign.
+    choice OrganizerBond_Lock : (ContractId OrganizerBond, [ContractId BonusEntitlement])
+      with
+        ticketCids : [ContractId BondTicket]
+      controller operator
+      do
+        require "bond is not yet locked" (not locked)
+        now <- getTime
+        require "lock at or after lockTime" (now >= terms.lockTime)
+        require "each ticket is listed once" (allUnique ticketCids)
+        tickets <- forA ticketCids fetch
+        forA_ tickets \t ->
+          require "ticket belongs to this campaign"
+            (t.campaignId == campaignId && t.forwarder == forwarder
+              && t.operator == operator && t.terms == terms)
+        let bonuses = computeBonuses terms.bondMicroUsdc (map (.reservedMilliCbm) tickets)
+        require "bonuses plus dust equal the bond"
+          (sum bonuses + bonusDust terms.bondMicroUsdc bonuses == terms.bondMicroUsdc
+            && bonusDust terms.bondMicroUsdc bonuses >= 0)
+        entitlementCids <- forA (zip ticketCids bonuses) \(ticketCid, bonus) ->
+          exercise ticketCid BondTicket_Convert with bonusMicroUsdc = bonus
+        bondCid <- create this with locked = True
+        pure (bondCid, entitlementCids)
+
+    -- | Return what remains of the bond to the forwarder. Operator automation verifies from
+    -- its own view that the campaign is archived and no ticket, entitlement or payout is
+    -- live (section 13.3).
+    choice OrganizerBond_Return : Optional TransferInstructionResult
+      with
+        amountMicroUsdc : Int
+        transferFactoryCid : ContractId TransferFactory
+        inputHoldingCids : [ContractId Holding]
+        extraArgs : ExtraArgs
+      controller operator
+      do
+        require "return amount is within the bond" (amountMicroUsdc >= 0 && amountMicroUsdc <= terms.bondMicroUsdc)
+        if amountMicroUsdc == 0 then pure None
+        else do
+          now <- getTime
+          amount <- toTokenDecimalU terms.tokenDecimals amountMicroUsdc
+          Some <$> exercise transferFactoryCid TransferFactory_Transfer with
+            expectedAdmin = terms.instrumentId.admin
+            transfer = Transfer with
+              sender = operator
+              receiver = forwarder
+              amount
+              instrumentId = terms.instrumentId
+              requestedAt = now
+              executeBefore = now `addRelTime` days 30
+              inputHoldingCids
+              meta = emptyMetadata
+            extraArgs

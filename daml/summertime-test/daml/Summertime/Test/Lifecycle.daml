@@ -1,0 +1,179 @@
+-- | End-to-end paths (specification 26.1 "Lifecycle"; acceptance criteria, section 36).
+module Summertime.Test.Lifecycle where
+
+import DA.Assert ((===))
+import DA.Foldable (forA_)
+import Daml.Script
+
+import Splice.Api.Token.HoldingV1 (Holding)
+import Splice.Api.Token.TransferInstructionV1 (TransferFactory)
+import Splice.Testing.Tokens.TestTokenV1 (Token)
+
+import Summertime.Campaign
+import Summertime.Capacity
+import Summertime.Records
+import Summertime.Reservation
+import Summertime.Settlement
+import Summertime.Types
+import Summertime.Test.Setup
+
+-- | UC-1: six importers fill the container and settle in one transaction (17.5).
+test_success_sixImportersSettleAtomically : Script ()
+test_success_sixImportersSettleAtomically = do
+  env <- setupEnv
+  (campaignCid, _, joined) <- campaignWith env "c-success" (fullContainer env)
+  before <- balance env env.forwarder
+  outcomeCid <- submit env.forwarder $ exerciseCmd campaignCid Campaign_Execute with
+    included = settleLegsWithTickets joined
+  Some outcome <- queryContractId env.forwarder outcomeCid
+  outcome.result === Succeeded
+  outcome.legCount === 6
+  outcome.settledMilliCbm === 60000
+  outcome.settledMicroUsdc === 9000000000
+  after <- balance env env.forwarder
+  after - before === 9000000000
+  -- Every importer has exactly one Settled receipt, and every bond ticket is void.
+  forA_ joined \j -> do
+    receipts <- query @Receipt j.importer
+    map (\(_, r) -> r.kind) receipts === [Settled]
+    None <- queryContractId j.importer j.ticketCid
+    None <- queryContractId j.importer j.commitmentCid
+    pure ()
+
+-- | Success after the bond is locked: settlement voids entitlements, and the operator
+-- returns the whole bond.
+test_success_afterLockVoidsEntitlementsAndReturnsBond : Script ()
+test_success_afterLockVoidsEntitlementsAndReturnsBond = do
+  env <- setupEnv
+  (campaignCid, bondCid, joined) <- campaignWith env "c-locked" (fullContainer env)
+  toLockTime env
+  (lockedBondCid, entitlementCids) <- submit env.operator $
+    exerciseCmd bondCid OrganizerBond_Lock with ticketCids = map (.ticketCid) joined
+  length entitlementCids === 6
+  _ <- submit env.forwarder $ exerciseCmd campaignCid Campaign_Execute with
+    included = zipWith (\j e -> SettleLeg with commitmentCid = j.commitmentCid; bonusRef = EntitlementRef e; extraArgs = noExtraArgs) joined entitlementCids
+  forA_ entitlementCids \e -> do
+    None <- queryContractId env.operator e
+    pure ()
+  -- Bond return: operator automation has verified no ticket, entitlement or payout is live.
+  before <- balance env env.forwarder
+  inputs <- operatorHoldings env
+  Some result <- submit (actAs env.operator <> disclose env.rulesDisclosure) $
+    exerciseCmd lockedBondCid OrganizerBond_Return with
+      amountMicroUsdc = env.terms.bondMicroUsdc
+      transferFactoryCid = toInterfaceContractId @TransferFactory env.rulesCid
+      inputHoldingCids = inputs
+      extraArgs = noExtraArgs
+  _ <- acceptPending env.forwarder result
+  after <- balance env env.forwarder
+  after - before === env.terms.bondMicroUsdc
+
+-- | UC-2: the container does not fill. Every eligible importer claims its bonus and gets
+-- its funds back; bonuses plus dust equal the bond (17.6).
+test_failure_everyEligibleImporterIsPaid : Script ()
+test_failure_everyEligibleImporterIsPaid = do
+  env <- setupEnv
+  -- F never reserves: 54 of 60 CBM.
+  (campaignCid, bondCid, joined) <- campaignWith env "c-failure" (take 5 (fullContainer env))
+  toLockTime env
+  (_, entitlementCids) <- submit env.operator $
+    exerciseCmd bondCid OrganizerBond_Lock with ticketCids = map (.ticketCid) joined
+  -- Settlement is impossible below the threshold.
+  submitMustFail env.forwarder $ exerciseCmd campaignCid Campaign_Execute with
+    included = [ SettleLeg with commitmentCid = j.commitmentCid; bonusRef = EntitlementRef e; extraArgs = noExtraArgs
+               | (j, e) <- zip joined entitlementCids ]
+  toDeadline env
+  outcomeCid <- submit env.forwarder $ exerciseCmd campaignCid Campaign_Fail with actor = env.forwarder
+  Some outcome <- queryContractId env.forwarder outcomeCid
+  outcome.result === Failed
+  paid <- forA (zip joined entitlementCids) \(j, e) -> do
+    payoutCid <- submit j.importer $ exerciseCmd e BonusEntitlement_Claim with extraArgs = noExtraArgs
+    Some payout <- queryContractId j.importer payoutCid
+    payAndAccept env payoutCid j.importer
+    -- Funds released: the importer holds its locked amount again, plus the bonus.
+    bal <- balance env j.importer
+    bal === j.reservedMilliCbm * env.terms.rateMicroUsdcPerMilliCbm + payout.bonusMicroUsdc
+    pure payout.bonusMicroUsdc
+  paid === [51851851, 44444444, 40740740, 33333333, 29629629]
+  env.terms.bondMicroUsdc - sum paid === 3
+
+-- | A committed importer left out of a successful settlement can claim its bonus.
+test_success_excludedImporterClaimsBonus : Script ()
+test_success_excludedImporterClaimsBonus = do
+  env <- setupEnv
+  let terms = env.terms with thresholdMilliCbm = 50000
+  (campaignCid0, bondCid) <- openCampaignWith env "c-exclude" terms
+  invitationCids <- invite env campaignCid0 env.importers
+  let step (cid, acc) ((importer, size), inv) = do
+        (cid', j) <- joinCampaign env cid inv importer size
+        pure (cid', acc ++ [j])
+  (campaignCid, joined) <- foldScript step (campaignCid0, []) (zip (fullContainer env) invitationCids)
+  toLockTime env
+  (_, entitlementCids) <- submit env.operator $
+    exerciseCmd bondCid OrganizerBond_Lock with ticketCids = map (.ticketCid) joined
+  let legs = zip joined entitlementCids
+      (included, [(excluded, excludedEntitlement)]) = splitAt 5 legs
+  _ <- submit env.forwarder $ exerciseCmd campaignCid Campaign_Execute with
+    included = [ SettleLeg with commitmentCid = j.commitmentCid; bonusRef = EntitlementRef e; extraArgs = noExtraArgs
+               | (j, e) <- included ]
+  toDeadline env
+  payoutCid <- submit excluded.importer $ exerciseCmd excludedEntitlement BonusEntitlement_Claim with
+    extraArgs = noExtraArgs
+  Some payout <- queryContractId excluded.importer payoutCid
+  -- F reserved 6 of 60 CBM: ⌊200 × 6000 / 60000⌋ = 20 USDCx.
+  payout.bonusMicroUsdc === 20000000
+
+-- | UC-3: withdrawal before lock is free and returns the capacity to the campaign.
+test_withdrawBeforeLock_freesFundsAndCapacity : Script ()
+test_withdrawBeforeLock_freesFundsAndCapacity = do
+  env <- setupEnv
+  let a = importerAt env 0
+  (campaignCid, _, [joined]) <- campaignWith env "c-withdraw" [(a, 4000)]
+  Some campaign <- queryContractId env.forwarder campaignCid
+  campaign.heldMilliCbm === 4000
+  releaseCid <- submit a $ exerciseCmd joined.commitmentCid Commitment_Withdraw with
+    ticketCid = joined.ticketCid
+    extraArgs = noExtraArgs
+  balance env a >>= (=== 4000 * env.terms.rateMicroUsdcPerMilliCbm)
+  campaignCid' <- submit env.forwarder $ exerciseCmd campaignCid Campaign_ReleaseCapacity with
+    source = FromRelease releaseCid
+  Some campaign' <- queryContractId env.forwarder campaignCid'
+  campaign'.heldMilliCbm === 0
+  -- With nothing held, the forwarder can cancel at no cost.
+  outcomeCid <- submit env.forwarder $ exerciseCmd campaignCid' Campaign_Cancel
+  Some outcome <- queryContractId env.forwarder outcomeCid
+  outcome.result === Cancelled
+
+-- | Uncommitted reservations expire at lockTime and free their capacity.
+test_uncommittedReservationExpires : Script ()
+test_uncommittedReservationExpires = do
+  env <- setupEnv
+  let a = importerAt env 0
+  (campaignCid, _) <- openCampaign env "c-expire"
+  [inv] <- invite env campaignCid [a]
+  (campaignCid', reservationCid, _) <- reserve env campaignCid inv a 5000
+  toLockTime env
+  releaseCid <- submit env.forwarder $ exerciseCmd reservationCid CapacityReservation_Expire with actor = env.forwarder
+  campaignCid'' <- submit env.forwarder $ exerciseCmd campaignCid' Campaign_ReleaseCapacity with source = FromRelease releaseCid
+  Some campaign <- queryContractId env.forwarder campaignCid''
+  campaign.heldMilliCbm === 0
+
+-- Helpers ---------------------------------------------------------------------
+
+operatorHoldings : Env -> Script [ContractId Holding]
+operatorHoldings env = do
+  tokens <- query @Token env.operator
+  pure [ toInterfaceContractId cid | (cid, t) <- tokens, t.holding.owner == env.operator, t.holding.lock == None ]
+
+-- | Operator automation pays a payout from the bond holdings; the importer accepts.
+payAndAccept : Env -> ContractId BonusPayout -> Party -> Script ()
+payAndAccept env payoutCid importer = do
+  inputs <- operatorHoldings env
+  (_, result) <- submit (actAs env.operator <> disclose env.rulesDisclosure) $
+    exerciseCmd payoutCid BonusPayout_Pay with
+      transferFactoryCid = toInterfaceContractId @TransferFactory env.rulesCid
+      inputHoldingCids = inputs
+      extraArgs = noExtraArgs
+  case result of
+    Some r -> () <$ acceptPending importer r
+    None -> pure ()

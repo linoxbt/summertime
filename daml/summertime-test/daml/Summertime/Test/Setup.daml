@@ -1,0 +1,242 @@
+-- | Shared test environment: parties, a reference token, standard terms and helpers that
+-- drive a campaign through its workflow exactly as the backend and wallets would.
+--
+-- The token is Splice's 'TestTokenV1', which implements the same token-standard V1
+-- interfaces as USDCx and Canton Coin.
+module Summertime.Test.Setup where
+
+import DA.Time (days, addRelTime)
+import DA.Date (date, Month(..))
+import DA.Time (time)
+import DA.TextMap qualified as TextMap
+
+import DA.List ((!!))
+import Daml.Script
+
+import Splice.Api.Token.MetadataV1
+import Splice.Api.Token.HoldingV1
+import Splice.Api.Token.AllocationV1
+import Splice.Api.Token.AllocationRequestV1
+import Splice.Api.Token.AllocationInstructionV1
+import Splice.Api.Token.TransferInstructionV1
+import Splice.Testing.Tokens.TestTokenV1 (Token(..), TokenRules(..))
+
+import Summertime.Campaign
+import Summertime.Reservation
+import Summertime.Settlement
+import Summertime.Types
+
+data Env = Env with
+    admin : Party
+      -- ^ Token instrument administrator (the registry).
+    forwarder : Party
+    operator : Party
+    importers : [Party]
+      -- ^ Six importers, A to F.
+    outsider : Party
+    rulesCid : ContractId TokenRules
+    rulesDisclosure : Disclosure
+    instrumentId : InstrumentId
+    t0 : Time
+    terms : CampaignTerms
+
+noExtraArgs : ExtraArgs
+noExtraArgs = ExtraArgs with context = emptyChoiceContext; meta = emptyMetadata
+
+-- | Micro-USDCx to the token's decimal (tests use 6 decimals, like USDC).
+usdc : Int -> Decimal
+usdc micro = intToDecimal micro / 1000000.0
+
+-- | The worked example of section 17.5: a 60 CBM container at 150 USDCx per CBM,
+-- threshold 60 CBM, 1–15 CBM per importer, 200 USDCx bond.
+standardTerms : InstrumentId -> Time -> CampaignTerms
+standardTerms instrumentId t0 = CampaignTerms with
+  containerCapacityMilliCbm = 60000
+  thresholdMilliCbm = 60000
+  rateMicroUsdcPerMilliCbm = 150000
+  minReservationMilliCbm = 1000
+  maxReservationMilliCbm = 15000
+  lockTime = t0 `addRelTime` days 3
+  deadline = t0 `addRelTime` days 5
+  instrumentId
+  tokenDecimals = 6
+  bondMicroUsdc = 200000000
+  claimWindowEnd = t0 `addRelTime` days 95
+
+setupEnv : Script Env
+setupEnv = do
+  let t0 = time (date 2026 Dec 1) 9 0 0
+  setTime t0
+  admin <- allocatePartyByHint (PartyIdHint "Registry")
+  forwarder <- allocatePartyByHint (PartyIdHint "Forwarder")
+  operator <- allocatePartyByHint (PartyIdHint "Operator")
+  importers <- forA ["ImporterA", "ImporterB", "ImporterC", "ImporterD", "ImporterE", "ImporterF"] \name ->
+    allocatePartyByHint (PartyIdHint name)
+  outsider <- allocatePartyByHint (PartyIdHint "Outsider")
+  rulesCid <- submit admin $ createCmd TokenRules with admin
+  Some rulesDisclosure <- queryDisclosure admin rulesCid
+  let instrumentId = InstrumentId with admin; id = "USDCx"
+  pure Env with
+    admin; forwarder; operator; importers; outsider; rulesCid; rulesDisclosure; instrumentId; t0
+    terms = standardTerms instrumentId t0
+
+importerAt : Env -> Int -> Party
+importerAt env i = env.importers !! i
+
+-- | Registry mint, standing in for an importer's or forwarder's existing USDCx.
+mint : Env -> Party -> Int -> Script (ContractId Holding)
+mint env owner micro = do
+  cid <- submit (actAs env.admin <> actAs owner) $ createCmd Token with
+    holding = HoldingView with
+      owner
+      instrumentId = env.instrumentId
+      amount = usdc micro
+      lock = None
+      meta = emptyMetadata
+  pure (toInterfaceContractId cid)
+
+-- | Token-standard transfer through the registry's transfer factory, accepted by the receiver.
+transferTo : Env -> Party -> Party -> Int -> [ContractId Holding] -> Script [ContractId Holding]
+transferTo env sender receiver micro inputs = do
+  now <- getTime
+  result <- submit (actAs sender <> disclose env.rulesDisclosure) $
+    exerciseCmd (toInterfaceContractId @TransferFactory env.rulesCid) TransferFactory_Transfer with
+      expectedAdmin = env.admin
+      transfer = Transfer with
+        sender; receiver
+        amount = usdc micro
+        instrumentId = env.instrumentId
+        requestedAt = now
+        executeBefore = now `addRelTime` days 1
+        inputHoldingCids = inputs
+        meta = emptyMetadata
+      extraArgs = noExtraArgs
+  acceptPending receiver result
+
+-- | Accept a pending transfer instruction as its receiver (registries without pre-approval).
+acceptPending : Party -> TransferInstructionResult -> Script [ContractId Holding]
+acceptPending receiver result = case result.output of
+  TransferInstructionResult_Completed{receiverHoldingCids} -> pure receiverHoldingCids
+  TransferInstructionResult_Pending{transferInstructionCid} -> do
+    accepted <- submit receiver $ exerciseCmd transferInstructionCid TransferInstruction_Accept with
+      extraArgs = noExtraArgs
+    case accepted.output of
+      TransferInstructionResult_Completed{receiverHoldingCids} -> pure receiverHoldingCids
+      _ -> fail "transfer acceptance did not complete"
+  TransferInstructionResult_Failed -> fail "transfer failed"
+
+-- | Total unlocked balance a party holds, in micro-USDCx.
+balance : Env -> Party -> Script Int
+balance _env party = do
+  tokens <- query @Token party
+  let mine = [ t.holding.amount | (_, t) <- tokens, t.holding.owner == party, t.holding.lock == None ]
+  pure (truncate (sum mine * 1000000.0))
+
+-- | F-1: the forwarder proposes, transfers the bond, and operator automation accepts.
+openCampaignWith : Env -> Text -> CampaignTerms -> Script (ContractId Campaign, ContractId OrganizerBond)
+openCampaignWith env campaignId terms = do
+  proposalCid <- submit env.forwarder $ createCmd CampaignProposal with
+    forwarder = env.forwarder
+    operator = env.operator
+    auditor = None
+    campaignId
+    terms
+  bondSource <- mint env env.forwarder terms.bondMicroUsdc
+  bondHoldings <- transferTo env env.forwarder env.operator terms.bondMicroUsdc [bondSource]
+  submit env.operator $ exerciseCmd proposalCid CampaignProposal_Accept with
+    bondHoldingCids = bondHoldings
+
+openCampaign : Env -> Text -> Script (ContractId Campaign, ContractId OrganizerBond)
+openCampaign env campaignId = openCampaignWith env campaignId env.terms
+
+invite : Env -> ContractId Campaign -> [Party] -> Script [ContractId Invitation]
+invite env campaignCid parties =
+  submit env.forwarder $ exerciseCmd campaignCid Campaign_Invite with
+    invitees = zipWith (\p i -> Invitee with importer = p; invitationId = "inv-" <> show i) parties [1 .. length parties]
+
+-- | F-3: request, hold capacity, countersign.
+reserve : Env -> ContractId Campaign -> ContractId Invitation -> Party -> Int
+  -> Script (ContractId Campaign, ContractId CapacityReservation, ContractId SummertimeAllocationRequest)
+reserve env campaignCid invitationCid importer size = do
+  requestCid <- submit importer $ exerciseCmd invitationCid Invitation_RequestReservation with
+    reservedMilliCbm = size
+  (campaignCid', holdCid) <- submit env.forwarder $ exerciseCmd campaignCid Campaign_HoldCapacity with size
+  (reservationCid, allocationRequestCid) <- submit env.forwarder $
+    exerciseCmd requestCid ReservationRequest_Countersign with holdCid
+  pure (campaignCid', reservationCid, allocationRequestCid)
+
+-- | The importer's wallet reads the allocation request and allocates its leg (F-4).
+-- 'tweak' lets adversarial tests change the specification the wallet signs.
+allocateWith : Env -> Party -> ContractId SummertimeAllocationRequest
+  -> (AllocationSpecification -> AllocationSpecification) -> Script (ContractId Allocation)
+allocateWith env importer allocationRequestCid tweak = do
+  Some requestView <- queryInterfaceContractId importer (toInterfaceContractId @AllocationRequest allocationRequestCid)
+  let [(transferLegId, transferLeg)] = TextMap.toList requestView.transferLegs
+      spec = tweak AllocationSpecification with
+        settlement = requestView.settlement
+        transferLegId
+        transferLeg
+  funds <- mint env importer (truncate (spec.transferLeg.amount * 1000000.0))
+  now <- getTime
+  result <- submit (actAs importer <> disclose env.rulesDisclosure) $
+    exerciseCmd (toInterfaceContractId @AllocationFactory env.rulesCid) AllocationFactory_Allocate with
+      expectedAdmin = env.admin
+      allocation = spec
+      requestedAt = now
+      inputHoldingCids = [funds]
+      extraArgs = noExtraArgs
+  case result.output of
+    AllocationInstructionResult_Completed{allocationCid} -> pure allocationCid
+    _ -> fail "allocation did not complete"
+
+allocate : Env -> Party -> ContractId SummertimeAllocationRequest -> Script (ContractId Allocation)
+allocate env importer allocationRequestCid = allocateWith env importer allocationRequestCid identity
+
+-- | One importer's committed position.
+data Joined = Joined with
+    importer : Party
+    commitmentCid : ContractId Commitment
+    ticketCid : ContractId BondTicket
+    allocationCid : ContractId Allocation
+    reservedMilliCbm : Int
+
+-- | Reserve, allocate and commit in one go.
+joinCampaign : Env -> ContractId Campaign -> ContractId Invitation -> Party -> Int -> Script (ContractId Campaign, Joined)
+joinCampaign env campaignCid invitationCid importer size = do
+  (campaignCid', reservationCid, allocationRequestCid) <- reserve env campaignCid invitationCid importer size
+  allocationCid <- allocate env importer allocationRequestCid
+  (commitmentCid, ticketCid) <- submit importer $
+    exerciseCmd reservationCid CapacityReservation_Commit with allocationCid
+  pure (campaignCid', Joined with importer; commitmentCid; ticketCid; allocationCid; reservedMilliCbm = size)
+
+-- | Open a campaign, invite the given importers and commit each with the given size.
+campaignWith : Env -> Text -> [(Party, Int)] -> Script (ContractId Campaign, ContractId OrganizerBond, [Joined])
+campaignWith env campaignId positions = do
+  (campaignCid, bondCid) <- openCampaign env campaignId
+  invitationCids <- invite env campaignCid (map fst positions)
+  let step (cid, acc) ((importer, size), invitationCid) = do
+        (cid', joined) <- joinCampaign env cid invitationCid importer size
+        pure (cid', acc ++ [joined])
+  (campaignCid', joined) <- foldScript step (campaignCid, []) (zip positions invitationCids)
+  pure (campaignCid', bondCid, joined)
+
+-- | The six importers of section 17.5, 60 CBM in total.
+fullContainer : Env -> [(Party, Int)]
+fullContainer env = zip env.importers [14000, 12000, 11000, 9000, 8000, 6000]
+
+settleLegsWithTickets : [Joined] -> [SettleLeg]
+settleLegsWithTickets = map \j -> SettleLeg with
+  commitmentCid = j.commitmentCid
+  bonusRef = TicketRef j.ticketCid
+  extraArgs = noExtraArgs
+
+toLockTime : Env -> Script ()
+toLockTime env = setTime env.terms.lockTime
+
+toDeadline : Env -> Script ()
+toDeadline env = setTime env.terms.deadline
+
+-- | Left fold with effects.
+foldScript : (b -> a -> Script b) -> b -> [a] -> Script b
+foldScript _ acc [] = pure acc
+foldScript f acc (x :: xs) = f acc x >>= \acc' -> foldScript f acc' xs

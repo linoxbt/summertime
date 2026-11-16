@@ -1,0 +1,5 @@
+sdk-version: 3.7.1
+
+packages:
+- ./summertime-core
+- ./summertime-test

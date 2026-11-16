@@ -1,0 +1,115 @@
+-- | Shared types, validation and integer arithmetic (specification sections 13.1 and 17).
+--
+-- All Summertime amounts are integers: capacity in milli-CBM, money in micro-USDCx.
+-- Conversion to the token's 'Decimal' happens only when building transfer legs (NFR-1).
+module Summertime.Types where
+
+import Splice.Api.Token.HoldingV1 (InstrumentId)
+
+-- | Immutable campaign terms. Copied into every invitation, reservation and commitment,
+-- so each party can check settlement against the terms it agreed to.
+data CampaignTerms = CampaignTerms with
+    containerCapacityMilliCbm : Int
+    thresholdMilliCbm : Int
+    rateMicroUsdcPerMilliCbm : Int
+    minReservationMilliCbm : Int
+    maxReservationMilliCbm : Int
+    lockTime : Time
+    deadline : Time
+    instrumentId : InstrumentId
+    tokenDecimals : Int
+      -- ^ Read from the registry's token metadata (Dependency).
+    bondMicroUsdc : Int
+    claimWindowEnd : Time
+      -- ^ Proposed: deadline + 90 days.
+  deriving (Eq, Show)
+
+-- | How a campaign ended (recorded in 'CampaignOutcome').
+data Outcome = Succeeded | Failed | Cancelled
+  deriving (Eq, Show)
+
+data ReceiptKind = Settled | Released | Withdrawn | BonusPaid
+  deriving (Eq, Show)
+
+-- | An importer to invite, with the forwarder's reference for the invitation.
+-- The invitation ID becomes the reservation ID.
+data Invitee = Invitee with
+    importer : Party
+    invitationId : Text
+  deriving (Eq, Show)
+
+-- | Smallest reservation the terms may allow: 1 CBM (anti-abuse, section 17.4).
+minimumReservationFloorMilliCbm : Int
+minimumReservationFloorMilliCbm = 1000
+
+-- | Container capacity × rate, in micro-USDCx.
+fullCapacityValueMicroUsdc : CampaignTerms -> Int
+fullCapacityValueMicroUsdc t = t.containerCapacityMilliCbm * t.rateMicroUsdcPerMilliCbm
+
+-- | The bond must be between 1% and 5% of full-capacity value (Proposed defaults, 17.3).
+bondInRange : CampaignTerms -> Bool
+bondInRange t =
+  let full = fullCapacityValueMicroUsdc t
+  in t.bondMicroUsdc > 0 && t.bondMicroUsdc * 100 >= full && t.bondMicroUsdc * 100 <= full * 5
+
+-- | Validation applied by 'ensure' on proposals and campaigns (F-1).
+validTerms : CampaignTerms -> Bool
+validTerms t =
+  t.containerCapacityMilliCbm > 0
+  && t.thresholdMilliCbm > 0
+  && t.thresholdMilliCbm <= t.containerCapacityMilliCbm
+  && t.rateMicroUsdcPerMilliCbm > 0
+  && t.minReservationMilliCbm >= minimumReservationFloorMilliCbm
+  && t.minReservationMilliCbm <= t.maxReservationMilliCbm
+  && t.maxReservationMilliCbm <= t.containerCapacityMilliCbm
+  && t.lockTime < t.deadline
+  && t.deadline < t.claimWindowEnd
+  && t.tokenDecimals >= 0 && t.tokenDecimals <= 10
+  && bondInRange t
+  && isRight (toTokenDecimal t.tokenDecimals t.bondMicroUsdc)
+
+reservationInBounds : CampaignTerms -> Int -> Bool
+reservationInBounds t size =
+  t.minReservationMilliCbm <= size && size <= t.maxReservationMilliCbm
+
+-- | Locked amount = reserved milli-CBM × rate. Exact; computed on-ledger only.
+lockedAmountMicroUsdc : CampaignTerms -> Int -> Int
+lockedAmountMicroUsdc t reservedMilliCbm = reservedMilliCbm * t.rateMicroUsdcPerMilliCbm
+
+pow10 : Int -> Int
+pow10 n = if n <= 0 then 1 else 10 * pow10 (n - 1)
+
+-- | Convert micro-units (6 decimals) to the token's precision.
+-- Rejects amounts that the token cannot represent exactly.
+toTokenDecimal : Int -> Int -> Either Text Decimal
+toTokenDecimal decimals micro
+  | decimals < 0 || decimals > 10 = Left ("Unsupported token decimals: " <> show decimals)
+  | micro < 0 = Left "Amount must not be negative"
+  | decimals < 6 && micro % pow10 (6 - decimals) /= 0 =
+      Left ("Amount " <> show micro <> " micro-units is not representable with " <> show decimals <> " decimals")
+  | otherwise = Right (intToDecimal micro / 1000000.0)
+
+-- | 'toTokenDecimal' inside an update, aborting on unrepresentable amounts.
+toTokenDecimalU : Int -> Int -> Update Decimal
+toTokenDecimalU decimals micro = either abort pure (toTokenDecimal decimals micro)
+
+-- | CIP-56 settlement reference for a campaign (section 15.2).
+settlementRefId : Text -> Text
+settlementRefId campaignId = "summertime:campaign:" <> campaignId
+
+-- | CIP-56 transfer-leg ID for a reservation (section 15.2).
+transferLegIdFor : Text -> Text -> Text
+transferLegIdFor campaignId reservationId = campaignId <> ":" <> reservationId
+
+-- | Assertion with a readable message.
+require : CanAssert m => Text -> Bool -> m ()
+require msg cond = assertMsg ("Summertime requirement failed: " <> msg) cond
+
+isRight : Either a b -> Bool
+isRight (Right _) = True
+isRight (Left _) = False
+
+-- | True if the list has no duplicates.
+allUnique : Eq a => [a] -> Bool
+allUnique [] = True
+allUnique (x :: xs) = notElem x xs && allUnique xs

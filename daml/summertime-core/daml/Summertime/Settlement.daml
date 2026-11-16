@@ -1,0 +1,282 @@
+-- | Commitments, bonus eligibility and payouts (specification F-4 to F-9, section 13).
+module Summertime.Settlement where
+
+import DA.Action (void, when)
+import DA.Time (days, addRelTime)
+
+import Splice.Api.Token.MetadataV1 (ExtraArgs, emptyMetadata)
+import Splice.Api.Token.HoldingV1 (Holding, InstrumentId)
+import Splice.Api.Token.AllocationV1
+import Splice.Api.Token.TransferInstructionV1
+
+import Summertime.Capacity
+import Summertime.Records
+import Summertime.Types
+
+-- | Which bonus record a settlement must void: the 'BondTicket' before the bond is
+-- locked, or the 'BonusEntitlement' it was converted into after.
+data BonusRef
+  = TicketRef (ContractId BondTicket)
+  | EntitlementRef (ContractId BonusEntitlement)
+  deriving (Eq, Show)
+
+-- | One leg passed to 'Campaign_Execute'.
+data SettleLeg = SettleLeg with
+    commitmentCid : ContractId Commitment
+    bonusRef : BonusRef
+    extraArgs : ExtraArgs
+      -- ^ Registry choice context for 'Allocation_ExecuteTransfer'.
+  deriving (Eq, Show)
+
+-- | An importer's binding commitment: its reservation plus a matching token allocation.
+--
+-- Signed by importer and forwarder, so settling it carries the importer's authority for
+-- this one allocation. Every 'Commitment' that exists is active: settled, withdrawn,
+-- claimed and released commitments are archived.
+template Commitment with
+    importer : Party
+    forwarder : Party
+    operator : Party
+    campaignId : Text
+    reservationId : Text
+    reservedMilliCbm : Int
+    lockedMicroUsdc : Int
+    allocationCid : ContractId Allocation
+    terms : CampaignTerms
+  where
+    signatory importer, forwarder
+
+    -- | Free withdrawal before 'lockTime' (F-5). Releases the allocation, voids the bond
+    -- ticket, and frees the capacity through an importer-co-signed 'CapacityRelease'.
+    choice Commitment_Withdraw : ContractId CapacityRelease
+      with
+        ticketCid : ContractId BondTicket
+        extraArgs : ExtraArgs
+      controller importer
+      do
+        now <- getTime
+        require "withdrawal through Summertime is only possible before lockTime" (now < terms.lockTime)
+        ticket <- fetch ticketCid
+        require "bond ticket belongs to this commitment" (ticket.commitmentCid == self)
+        exercise ticketCid BondTicket_Void
+        void $ exercise allocationCid Allocation_Withdraw with extraArgs
+        void $ create Receipt with
+          forwarder; importer; campaignId; reservationId
+          kind = Withdrawn
+          reservedMilliCbm
+          amountMicroUsdc = 0
+          note = "Withdrawn before lock time"
+        create CapacityRelease with importer; forwarder; operator; campaignId; reservedMilliCbm
+
+    -- | Execute this importer's allocation (F-8).
+    --
+    -- Requires forwarder AND operator. A choice body's authority is the contract's
+    -- signatories plus the choice's controllers, and 'Commitment' is not signed by the
+    -- operator, so the forwarder cannot exercise this on its own. The operator's authority
+    -- exists only inside choices on the co-signed 'Campaign', and the only one that calls
+    -- this is 'Campaign_Execute', which checks threshold and deadline first.
+    choice Commitment_Settle : ContractId Receipt
+      with
+        settleCampaignId : Text
+        settleTerms : CampaignTerms
+        bonusRef : BonusRef
+        extraArgs : ExtraArgs
+      controller forwarder, operator
+      do
+        require "settlement is for this commitment's campaign"
+          (settleCampaignId == campaignId && settleTerms == terms)
+        void $ exercise allocationCid Allocation_ExecuteTransfer with extraArgs
+        case bonusRef of
+          TicketRef ticketCid -> do
+            ticket <- fetch ticketCid
+            require "bond ticket belongs to this commitment" (ticket.commitmentCid == self)
+            exercise ticketCid BondTicket_Void
+          EntitlementRef entitlementCid -> do
+            entitlement <- fetch entitlementCid
+            require "entitlement belongs to this commitment" (entitlement.commitmentCid == self)
+            exercise entitlementCid BonusEntitlement_Void
+        create Receipt with
+          forwarder; importer; campaignId; reservationId
+          kind = Settled
+          reservedMilliCbm
+          amountMicroUsdc = lockedMicroUsdc
+          note = "Settled. Your space is booked."
+
+    -- | Archive after a bonus claim. Only the importer can close its own commitment, and
+    -- doing so only gives up its own claim.
+    choice Commitment_Close : ()
+      controller importer
+      do pure ()
+
+    -- | Tidy up after the deadline (F-9). The importer may release from the deadline,
+    -- forfeiting any unclaimed bonus. The forwarder may release only after the claim window,
+    -- so it cannot use this to cancel a claimable bonus.
+    choice Commitment_Release : ContractId Receipt
+      with
+        actor : Party
+        cancelAllocation : Bool
+          -- ^ False if the allocation no longer exists (for example, withdrawn via the registry).
+        extraArgs : ExtraArgs
+      controller actor
+      do
+        now <- getTime
+        if actor == importer then
+          require "importer may release only at or after the deadline" (now >= terms.deadline)
+        else if actor == forwarder then
+          require "forwarder may release only at or after claimWindowEnd" (now >= terms.claimWindowEnd)
+        else
+          abort "Only the importer or the forwarder may release a commitment"
+        when cancelAllocation $ void $ exercise allocationCid Allocation_Cancel with extraArgs
+        create Receipt with
+          forwarder; importer; campaignId; reservationId
+          kind = Released
+          reservedMilliCbm
+          amountMicroUsdc = 0
+          note = "Released after the deadline"
+
+-- | Bonus eligibility, created by the importer's own commit (F-4, F-7).
+--
+-- Only the importer's authority can void it, which exists only inside the importer's own
+-- 'Commitment_Withdraw' or 'Commitment_Settle'. The forwarder cannot leave it out of the
+-- bond lock, because the operator, not the forwarder, runs the lock.
+template BondTicket with
+    importer : Party
+    forwarder : Party
+    operator : Party
+    campaignId : Text
+    reservationId : Text
+    commitmentCid : ContractId Commitment
+    reservedMilliCbm : Int
+    terms : CampaignTerms
+  where
+    signatory importer, forwarder
+    observer operator
+
+    -- | Used by 'OrganizerBond_Lock'. Needs forwarder and operator, so neither can mint
+    -- entitlements outside the lock, which asserts bond conservation.
+    choice BondTicket_Convert : ContractId BonusEntitlement
+      with
+        bonusMicroUsdc : Int
+      controller operator, forwarder
+      do
+        require "bonus is not negative" (bonusMicroUsdc >= 0)
+        create BonusEntitlement with
+          operator; forwarder; importer; campaignId; reservationId; commitmentCid
+          bonusMicroUsdc
+          instrumentId = terms.instrumentId
+          tokenDecimals = terms.tokenDecimals
+          claimableAfter = terms.deadline
+          claimWindowEnd = terms.claimWindowEnd
+
+    -- | Used by 'Commitment_Withdraw' and 'Commitment_Settle'.
+    choice BondTicket_Void : ()
+      controller importer
+      do pure ()
+
+-- | An importer's claim on the failure bond (F-7, F-9).
+template BonusEntitlement with
+    operator : Party
+    forwarder : Party
+    importer : Party
+    campaignId : Text
+    reservationId : Text
+    commitmentCid : ContractId Commitment
+    bonusMicroUsdc : Int
+    instrumentId : InstrumentId
+    tokenDecimals : Int
+    claimableAfter : Time
+    claimWindowEnd : Time
+  where
+    signatory operator, forwarder
+    observer importer
+    ensure bonusMicroUsdc >= 0 && claimableAfter < claimWindowEnd
+
+    -- | Claim after the deadline (F-9). Proves the commitment is still active (not settled
+    -- or withdrawn through Summertime) and that its allocation still exists (not withdrawn
+    -- through the registry after lock). Releases the importer's funds and records a payout
+    -- for the operator to pay.
+    choice BonusEntitlement_Claim : ContractId BonusPayout
+      with
+        extraArgs : ExtraArgs
+          -- ^ Registry choice context for 'Allocation_Withdraw'.
+      controller importer
+      do
+        now <- getTime
+        require "claim window is open" (claimableAfter <= now && now < claimWindowEnd)
+        commitment <- fetch commitmentCid
+        require "commitment matches the entitlement"
+          (commitment.importer == importer
+            && commitment.forwarder == forwarder
+            && commitment.campaignId == campaignId
+            && commitment.reservationId == reservationId)
+        -- Fails if the importer withdrew the allocation through the registry.
+        _ <- fetch commitment.allocationCid
+        void $ exercise commitment.allocationCid Allocation_Withdraw with extraArgs
+        exercise commitmentCid Commitment_Close
+        create BonusPayout with
+          operator; forwarder; importer; campaignId; reservationId
+          bonusMicroUsdc; instrumentId; tokenDecimals
+
+    -- | Used by 'Commitment_Settle'.
+    choice BonusEntitlement_Void : ()
+      controller importer
+      do pure ()
+
+    -- | Unclaimed entitlements lapse after the claim window; the remainder returns to the
+    -- forwarder with the bond.
+    choice BonusEntitlement_Expire : ()
+      controller operator
+      do
+        now <- getTime
+        require "claim window has ended" (now >= claimWindowEnd)
+
+-- | A validated bonus claim awaiting payment by the operator, which owns the bond holdings.
+-- Operator automation pays every payout, so one submitter serializes all spending of the
+-- bond and importers never need to see operator-owned holdings.
+template BonusPayout with
+    operator : Party
+    forwarder : Party
+    importer : Party
+    campaignId : Text
+    reservationId : Text
+    bonusMicroUsdc : Int
+    instrumentId : InstrumentId
+    tokenDecimals : Int
+  where
+    signatory operator, forwarder
+    observer importer
+
+    -- | Transfer the bonus through the token's transfer factory. For registries without a
+    -- transfer pre-approval this yields a pending transfer instruction that the importer
+    -- accepts (open question 7).
+    choice BonusPayout_Pay : (ContractId Receipt, Optional TransferInstructionResult)
+      with
+        transferFactoryCid : ContractId TransferFactory
+        inputHoldingCids : [ContractId Holding]
+        extraArgs : ExtraArgs
+      controller operator
+      do
+        result <-
+          if bonusMicroUsdc == 0 then pure None
+          else do
+            now <- getTime
+            amount <- toTokenDecimalU tokenDecimals bonusMicroUsdc
+            Some <$> exercise transferFactoryCid TransferFactory_Transfer with
+              expectedAdmin = instrumentId.admin
+              transfer = Transfer with
+                sender = operator
+                receiver = importer
+                amount
+                instrumentId
+                requestedAt = now
+                executeBefore = now `addRelTime` days 30
+                inputHoldingCids
+                meta = emptyMetadata
+              extraArgs
+        receiptCid <- create Receipt with
+          forwarder; importer; campaignId; reservationId
+          kind = BonusPaid
+          reservedMilliCbm = 0
+          amountMicroUsdc = bonusMicroUsdc
+          note = "Failure bonus paid"
+        pure (receiptCid, result)
