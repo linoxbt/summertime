@@ -32,7 +32,7 @@ function Invitations() {
       ) : q.isError ? (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       ) : q.data.length === 0 ? (
-        <EmptyState title="No open invitations">When a forwarder invites you to share a container, it appears here.</EmptyState>
+        <EmptyState title="No open invitations" />
       ) : (
         <ul className="space-y-3">
           {q.data.map((i) => (
@@ -78,7 +78,7 @@ function Positions() {
       ) : q.isError ? (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       ) : q.data.length === 0 ? (
-        <EmptyState title="Nothing reserved yet">Accept an invitation to reserve space in a container.</EmptyState>
+        <EmptyState title="Nothing reserved yet" />
       ) : (
         <ul className="space-y-3">
           {q.data.map((p) => (

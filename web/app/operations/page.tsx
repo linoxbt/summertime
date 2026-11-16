@@ -46,14 +46,13 @@ function Operations() {
             Operations <StatusBadge status={s.overall} />
           </span>
         }
-        subtitle="Summertime's automation, custody and settlement health. Checks run every minute."
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="min-w-0 space-y-4 lg:col-span-2">
           <Card title="Checks">
             {s.checks.length === 0 ? (
-              <EmptyState title="No checks yet">The worker records its first checks within a minute of starting.</EmptyState>
+              <EmptyState title="No checks yet" />
             ) : (
               <ul className="divide-y divide-slate-100">
                 {s.checks.map((c) => (
@@ -72,7 +71,7 @@ function Operations() {
 
           <Card title="Alert history">
             {s.alerts.length === 0 ? (
-              <EmptyState title="No alerts">Nothing has needed attention.</EmptyState>
+              <EmptyState title="No alerts" />
             ) : (
               <ul className="divide-y divide-slate-100">
                 {s.alerts.map((a) => (
@@ -118,7 +117,6 @@ function Operations() {
               <dt className="text-slate-600">Rejected</dt>
               <dd className="font-semibold text-ink">{s.commands.failed24h}</dd>
             </dl>
-            <p className="mt-2 text-xs text-slate-600">Rejections include expected business outcomes, such as requests rejected because a container is full.</p>
           </Card>
         </div>
       </div>

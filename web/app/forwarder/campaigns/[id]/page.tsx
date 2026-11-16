@@ -94,19 +94,18 @@ function CampaignDetail() {
         <Card className={c.outcome.result === "Succeeded" ? "mb-4 border-green-300 bg-green-50" : "mb-4"}>
           <h2 className="text-lg font-semibold text-ink">
             {c.outcome.result === "Succeeded"
-              ? "Settled in one transaction"
+              ? "Settled"
               : c.outcome.result === "Failed"
-                ? "The container did not fill"
-                : "Campaign cancelled"}
+                ? "Did not fill"
+                : "Cancelled"}
           </h2>
           {c.outcome.result === "Succeeded" && (
             <p className="mt-1 text-slate-700 tabular">
-              {c.outcome.legCount} importer{c.outcome.legCount === 1 ? "" : "s"} · {cbm(c.outcome.settled)} CBM · {c.outcome.settledAmount.display} USDCx paid
-              to you.
+              {c.outcome.legCount} importer{c.outcome.legCount === 1 ? "" : "s"} · {cbm(c.outcome.settled)} CBM · {c.outcome.settledAmount.display} USDCx
             </p>
           )}
           {c.outcome.result === "Failed" && (
-            <p className="mt-1 text-slate-700">Every importer&apos;s funds are released. Committed importers can claim their share of your bond.</p>
+            <p className="mt-1 text-slate-700">Funds released · bond shared</p>
           )}
           {c.outcome.updateId && (
             <div className="mt-3 text-sm">
@@ -144,10 +143,9 @@ function CampaignDetail() {
 
           <Card
             title={`Reservations (${c.reservations.length})`}
-            action={<span className="text-xs text-slate-600">Only you and Summertime see this list</span>}
           >
             {c.reservations.length === 0 ? (
-              <EmptyState title="No reservations yet">Invite importers; their requests appear here as they reserve.</EmptyState>
+              <EmptyState title="No reservations yet" />
             ) : (
               <div className="-mx-4 overflow-x-auto focus-visible:outline-2 focus-visible:outline-accent sm:mx-0" tabIndex={0} role="region" aria-label="Reservations table (scrolls sideways)">
                 <table className="w-full min-w-[560px] text-left text-sm">
@@ -187,7 +185,7 @@ function CampaignDetail() {
         <div className="min-w-0 space-y-4">
           <Card title="Settlement">
             {c.outcome ? (
-              <p className="text-sm text-slate-700">This campaign has ended.</p>
+              <p className="text-sm text-slate-700">Ended</p>
             ) : (
               <div className="space-y-3">
                 <Button className="w-full" disabled={!c.canExecute} onClick={execute.openSheet}>
@@ -210,7 +208,6 @@ function CampaignDetail() {
                     Cancel campaign
                   </Button>
                 )}
-                <p className="text-xs text-slate-600">All committed importers settle in one Canton transaction. If any leg fails, nothing moves.</p>
               </div>
             )}
           </Card>
@@ -226,9 +223,6 @@ function CampaignDetail() {
               <Button className="mt-3 w-full" onClick={bond.openSheet}>
                 Send bond
               </Button>
-            )}
-            {c.bond.stage === "transfer-sent" && (
-              <p className="mt-3 text-xs text-slate-600">Summertime accepts the bond and opens the campaign automatically.</p>
             )}
           </Card>
 
@@ -250,18 +244,13 @@ function CampaignDetail() {
 
       <ConfirmSheet
         open={bond.open}
-        title="Send the failure bond"
+        title="Send bond"
         rows={[
           { label: "Bond", value: `${c.bond.amount.display} USDCx` },
-          { label: "To", value: "Summertime (operator)" },
-          { label: "Deadline", value: formatDateTime(t.deadline) },
+          { label: "Held by", value: "Summertime" },
+          { label: "If full", value: "Returned to you" },
+          { label: "If not full", value: "Shared by importers" },
         ]}
-        consequence={
-          <p>
-            Summertime holds the bond until the campaign ends. If the container doesn&apos;t fill, it is paid to the importers who committed; otherwise it is
-            returned to you.
-          </p>
-        }
         confirmLabel="Send bond"
         busy={bond.busy}
         error={bond.error}
@@ -270,7 +259,7 @@ function CampaignDetail() {
       />
       <ConfirmSheet
         open={execute.open}
-        title="Settle the container"
+        title="Settle"
         rows={[
           { label: "Importers", value: String(committedRows.length) },
           { label: "Committed", value: `${cbm(c.committed)} CBM` },
@@ -280,12 +269,6 @@ function CampaignDetail() {
           },
           { label: "Deadline", value: formatDateTime(t.deadline) },
         ]}
-        consequence={
-          <p>
-            Every committed importer&apos;s payment settles to you in one atomic transaction, and their bonus claims are voided. If any leg fails, nothing moves
-            and you can try again before the deadline. Issue booking confirmations to each importer afterwards.
-          </p>
-        }
         confirmLabel="Settle now"
         busy={execute.busy}
         error={execute.error}
@@ -294,18 +277,13 @@ function CampaignDetail() {
       />
       <ConfirmSheet
         open={fail.open}
-        title="Record that the container did not fill"
+        title="Record failure"
         rows={[
           { label: "Committed", value: `${cbm(c.committed)} CBM` },
           { label: "Threshold", value: `${cbm(t.threshold)} CBM` },
           { label: "Bond shared", value: `${c.bond.amount.display} USDCx` },
+          { label: "Claims until", value: formatDateTime(t.claimWindowEnd) },
         ]}
-        consequence={
-          <p>
-            Nothing settles. Importers&apos; funds are released and committed importers can claim their share of your bond until{" "}
-            {formatDateTime(t.claimWindowEnd)}.
-          </p>
-        }
         confirmLabel="Record failure"
         tone="danger"
         busy={fail.busy}
@@ -315,12 +293,11 @@ function CampaignDetail() {
       />
       <ConfirmSheet
         open={cancel.open}
-        title="Cancel this campaign"
+        title="Cancel campaign"
         rows={[
           { label: "Reserved capacity", value: `${cbm(c.held)} CBM` },
-          { label: "Bond", value: `${c.bond.amount.display} USDCx` },
+          { label: "Bond", value: `${c.bond.amount.display} USDCx returned` },
         ]}
-        consequence={<p>No importer has reserved space, so cancelling costs nothing. Summertime returns your bond.</p>}
         confirmLabel="Cancel campaign"
         tone="danger"
         busy={cancel.busy}
@@ -403,13 +380,13 @@ function Invitees({ campaign, onDone }: { campaign: ForwarderCampaignDetail; onD
       {canInvite ? (
         <div className="mt-4 border-t border-slate-100 pt-4">
           <p className="text-sm font-semibold text-ink">Invite importers</p>
-          {campaign.status === "proposed" && <Notice>You can invite once the campaign is open (after Summertime accepts your bond).</Notice>}
+          {campaign.status === "proposed" && <Notice>Opens once the bond is accepted</Notice>}
           {directory.isPending ? (
             <p className="mt-2 text-sm text-slate-600">Loading importers…</p>
           ) : directory.isError ? (
             <InlineError error={directory.error} />
           ) : available.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-600">Every importer in your directory has been invited.</p>
+            <p className="mt-2 text-sm text-slate-600">All invited</p>
           ) : (
             <fieldset className="mt-2 grid gap-2 sm:grid-cols-2">
               <legend className="sr-only">Importers to invite</legend>
@@ -443,7 +420,7 @@ function Invitees({ campaign, onDone }: { campaign: ForwarderCampaignDetail; onD
       ) : (
         campaign.status === "open" && (
           <p className="mt-3 text-xs text-slate-600">
-            <Badge>Closed</Badge> The lock time has passed; no new invitations.
+            <Badge>Closed</Badge>
           </p>
         )
       )}

@@ -27,7 +27,6 @@ function CampaignList() {
     <>
       <PageHeader
         title="Campaigns"
-        subtitle="Every reservation in your campaigns is visible to you. Importers see only their own."
         action={
           <Link
             href="/forwarder/new"

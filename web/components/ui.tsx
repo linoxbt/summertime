@@ -127,7 +127,7 @@ export function Notice({ tone = "neutral", children }: { tone?: "neutral" | "acc
 export function PrivacyLine() {
   return (
     <p className="flex items-center gap-2 text-xs text-slate-600">
-      <LockIcon /> Only you, your forwarder and Summertime can see this.
+      <LockIcon /> Private: you, your forwarder, Summertime
     </p>
   );
 }
@@ -136,8 +136,7 @@ export function PrivacyLine() {
 export function CustodyNotice() {
   return (
     <Notice tone="accent">
-      <strong>Pilot mode:</strong> Summertime hosts your party and signs on your behalf. Summertime can therefore see your data and act for you; you will be
-      able to use your own wallet later.
+      <strong>Pilot mode:</strong> Summertime signs for you
     </Notice>
   );
 }
@@ -252,7 +251,7 @@ export function ConfirmSheet({
   open: boolean;
   title: string;
   rows: { label: string; value: ReactNode }[];
-  consequence: ReactNode;
+  consequence?: ReactNode;
   children?: ReactNode;
   confirmLabel: string;
   tone?: "primary" | "danger";
@@ -293,7 +292,7 @@ export function ConfirmSheet({
             </div>
           ))}
         </dl>
-        <div className="mt-4 text-sm text-slate-700">{consequence}</div>
+        {consequence ? <div className="mt-4 text-sm text-slate-700">{consequence}</div> : null}
         {children && <div className="mt-4 space-y-3">{children}</div>}
         {error ? (
           <div className="mt-4">

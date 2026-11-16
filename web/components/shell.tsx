@@ -77,7 +77,7 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
   return (
     <div className="min-h-screen">
       <div className="bg-ink px-4 py-1.5 text-center text-xs font-medium text-amber-200">
-        Demo environment: test USDCx on a local Canton ledger. No real money moves.
+        Demo · test USDCx
       </div>
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">

@@ -7,7 +7,7 @@ import { formatUsdc, parseUnits } from "@summertime/ledger";
 import { api, newIdempotencyKey } from "@/lib/api";
 import { formatDateTime, toLocalInput } from "@/lib/format";
 import { AppShell } from "@/components/shell";
-import { Button, Card, ConfirmSheet, Field, InlineError, Notice, PageHeader, inputClass } from "@/components/ui";
+import { Button, Card, KeyValues, ConfirmSheet, Field, InlineError, PageHeader, inputClass } from "@/components/ui";
 
 interface FormState {
   title: string;
@@ -123,12 +123,15 @@ function NewCampaign() {
   if (created) {
     return (
       <>
-        <PageHeader title="Post the failure bond" subtitle={`Campaign "${f.title}" is proposed.`} />
+        <PageHeader title="Send bond" subtitle={f.title} />
         <Card>
-          <p className="text-slate-700">
-            The campaign opens once Summertime receives your <strong className="tabular">{f.bondUsdc} USDCx</strong> failure bond. If the container doesn&apos;t
-            fill by the deadline, the bond is shared among the importers who committed. If it fills, the bond comes back to you.
-          </p>
+          <KeyValues
+            items={[
+              { label: "Bond", value: `${f.bondUsdc} USDCx` },
+              { label: "If full", value: "Returned to you" },
+              { label: "If not full", value: "Shared by importers" },
+            ]}
+          />
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Button onClick={() => setBondOpen(true)}>Send bond</Button>
             <Button variant="secondary" onClick={() => router.push(`/forwarder/campaigns/${encodeURIComponent(created.campaignId)}`)}>
@@ -138,18 +141,12 @@ function NewCampaign() {
         </Card>
         <ConfirmSheet
           open={bondOpen}
-          title="Send the failure bond"
+          title="Send bond"
           rows={[
             { label: "Bond", value: `${f.bondUsdc} USDCx` },
-            { label: "To", value: "Summertime (operator)" },
+            { label: "Held by", value: "Summertime" },
             { label: "Deadline", value: formatDateTime(new Date(f.deadline).toISOString()) },
           ]}
-          consequence={
-            <p>
-              Summertime holds the bond in custody until the campaign ends. If the container doesn&apos;t fill, it is paid to the importers who committed;
-              otherwise it is returned to you. Bond custody is trust in Summertime (see the privacy page).
-            </p>
-          }
           confirmLabel="Send bond"
           busy={bondBusy}
           error={bondError}
@@ -162,7 +159,7 @@ function NewCampaign() {
 
   return (
     <>
-      <PageHeader title="New campaign" subtitle="Terms cannot change once Summertime accepts the campaign." />
+      <PageHeader title="New campaign" />
       <form onSubmit={submit} className="grid gap-4 lg:grid-cols-3" noValidate>
         <div className="min-w-0 space-y-4 lg:col-span-2">
           <Card title="Shipment">
@@ -170,7 +167,7 @@ function NewCampaign() {
               <Field label="Campaign title" error={v.errors.title}>
                 <input className={inputClass} value={f.title} onChange={set("title")} placeholder="December groupage, 40ft HC" required />
               </Field>
-              <Field label="Route" hint="Shown to invited importers.">
+              <Field label="Route">
                 <input className={inputClass} value={f.route} onChange={set("route")} />
               </Field>
             </div>
@@ -180,17 +177,17 @@ function NewCampaign() {
               <Field label="Container capacity (CBM)" error={v.errors.capacityCbm}>
                 <input className={inputClass} inputMode="decimal" value={f.capacityCbm} onChange={set("capacityCbm")} />
               </Field>
-              <Field label="Threshold to settle (CBM)" hint="Settlement is possible once committed capacity reaches this." error={v.errors.thresholdCbm}>
+              <Field label="Threshold to settle (CBM)" error={v.errors.thresholdCbm}>
                 <input className={inputClass} inputMode="decimal" value={f.thresholdCbm} onChange={set("thresholdCbm")} />
               </Field>
               <Field label="Rate (USDCx per CBM)" error={v.errors.ratePerCbm}>
                 <input className={inputClass} inputMode="decimal" value={f.ratePerCbm} onChange={set("ratePerCbm")} />
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Min per importer" hint="CBM, at least 1" error={v.errors.minCbm}>
+                <Field label="Min per importer (CBM)" error={v.errors.minCbm}>
                   <input className={inputClass} inputMode="decimal" value={f.minCbm} onChange={set("minCbm")} />
                 </Field>
-                <Field label="Max per importer" hint="CBM" error={v.errors.maxCbm}>
+                <Field label="Max per importer (CBM)" error={v.errors.maxCbm}>
                   <input className={inputClass} inputMode="decimal" value={f.maxCbm} onChange={set("maxCbm")} />
                 </Field>
               </div>
@@ -213,16 +210,16 @@ function NewCampaign() {
               ))}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Lock time" hint="Last moment to reserve and commit; free withdrawal until then." error={v.errors.lockTime}>
+              <Field label="Lock time" error={v.errors.lockTime}>
                 <input type="datetime-local" className={inputClass} value={f.lockTime} onChange={set("lockTime")} />
               </Field>
-              <Field label="Deadline" hint="Settlement must happen before this, or the campaign fails." error={v.errors.deadline}>
+              <Field label="Deadline" error={v.errors.deadline}>
                 <input type="datetime-local" className={inputClass} value={f.deadline} onChange={set("deadline")} />
               </Field>
             </div>
           </Card>
           <Card title="Failure bond">
-            <Field label="Bond (USDCx)" hint="Between 1% and 5% of the full container value." error={v.errors.bondUsdc}>
+            <Field label="Bond (USDCx, 1–5%)" error={v.errors.bondUsdc}>
               <input className={inputClass} inputMode="decimal" value={f.bondUsdc} onChange={set("bondUsdc")} />
             </Field>
           </Card>
@@ -235,7 +232,6 @@ function NewCampaign() {
               <Row label="Threshold value" value={v.thresholdValue !== null ? `${formatUsdc(v.thresholdValue)} USDCx` : "—"} />
             </dl>
             <div className="mt-4 space-y-3">
-              <Notice>Importers never see each other. You see every reservation, as you do today.</Notice>
               <InlineError error={error} />
               <Button type="submit" className="w-full" busy={submitting} disabled={!v.ok}>
                 Propose campaign
@@ -267,9 +263,9 @@ function validate(f: FormState) {
   const max = tryParse(f.maxCbm, 3);
   const bond = tryParse(f.bondUsdc, 6);
   if (!f.title.trim()) errors.title = "Give the campaign a title.";
-  if (cap === null || cap <= 0n) errors.capacityCbm = "Enter a capacity in CBM (up to 3 decimals).";
+  if (cap === null || cap <= 0n) errors.capacityCbm = "Enter a capacity";
   if (thr === null || thr <= 0n) errors.thresholdCbm = "Enter a threshold in CBM.";
-  else if (cap !== null && thr > cap) errors.thresholdCbm = "The threshold cannot exceed the capacity.";
+  else if (cap !== null && thr > cap) errors.thresholdCbm = "Above capacity";
   if (rate === null || rate <= 0n) errors.ratePerCbm = "Enter a rate in USDCx.";
   else if (rate % 1000n !== 0n) errors.ratePerCbm = "Use at most 3 decimals for the rate.";
   if (min === null || min < 1000n) errors.minCbm = "At least 1 CBM.";
@@ -279,13 +275,13 @@ function validate(f: FormState) {
   const lock = Date.parse(f.lockTime);
   const dl = Date.parse(f.deadline);
   if (Number.isNaN(lock) || lock <= Date.now()) errors.lockTime = "Choose a lock time in the future.";
-  if (Number.isNaN(dl) || (!Number.isNaN(lock) && dl <= lock)) errors.deadline = "The deadline must be after the lock time.";
+  if (Number.isNaN(dl) || (!Number.isNaN(lock) && dl <= lock)) errors.deadline = "Must be after lock time";
   // Rate per milli-CBM in micro-USDCx = rate per CBM (micro) / 1000.
   const full = cap !== null && rate !== null ? (cap * rate) / 1000n : null;
   const thresholdValue = thr !== null && rate !== null ? (thr * rate) / 1000n : null;
   const bondPct = full !== null && full > 0n && bond !== null ? Number((bond * 10000n) / full) / 100 : null;
   if (bond === null || bond <= 0n) errors.bondUsdc = "Enter the bond in USDCx.";
   else if (bondPct !== null && (bond * 100n < full! || bond * 100n > full! * 5n))
-    errors.bondUsdc = "The bond must be between 1% and 5% of the full container value.";
+    errors.bondUsdc = "Must be 1–5% of full value";
   return { ok: Object.keys(errors).length === 0, errors, full, thresholdValue, bondPct };
 }

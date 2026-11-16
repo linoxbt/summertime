@@ -16,9 +16,9 @@ interface DemoAccount {
 }
 
 const ROLE_COPY: Record<SessionUser["role"], { title: string; body: string }> = {
-  forwarder: { title: "Forwarders", body: "Open campaigns, post the bond, invite importers and settle." },
-  importer: { title: "Importers", body: "Reserve space privately, sign your allocation and claim bonuses." },
-  operator: { title: "Summertime operator", body: "Watch the privacy explorer as the party that enforces the rules." },
+  forwarder: { title: "Forwarders", body: "Campaigns, bonds, settlement" },
+  importer: { title: "Importers", body: "Reserve, sign, claim" },
+  operator: { title: "Summertime operator", body: "Operations, privacy explorer" },
 };
 
 export default function LoginPage() {
@@ -51,10 +51,7 @@ export default function LoginPage() {
     <PublicPage>
       <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14">
         <h1 className="text-3xl font-semibold tracking-tight text-ink">Sign in to the demo</h1>
-        <p className="mt-2 max-w-2xl text-slate-700">
-          Choose an account. The demo runs on a local Canton ledger with test USDCx; no real money moves. In pilot mode Summertime hosts each party and signs on
-          its behalf.
-        </p>
+        <p className="mt-2 text-slate-700">Pick an account · test USDCx only</p>
         <div className="mt-6">
           <InlineError error={error} />
         </div>
@@ -64,7 +61,7 @@ export default function LoginPage() {
           ) : accounts.isError ? (
             <ErrorState error={accounts.error} onRetry={() => accounts.refetch()} />
           ) : accounts.data.length === 0 ? (
-            <EmptyState title="No demo accounts yet">Run the bootstrap script to create the demo parties.</EmptyState>
+            <EmptyState title="No demo accounts yet" />
           ) : (
             <div className="space-y-8">
               {roles.map((role) => {

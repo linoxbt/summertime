@@ -29,8 +29,7 @@ function Invitation() {
   const inv = q.data.find((i) => i.contractId === cid);
   if (!inv)
     return (
-      <EmptyState title="This invitation is no longer open">
-        It may have expired, been used or been revoked.{" "}
+      <EmptyState title="Invitation closed">
         <Link href="/importer" className="font-semibold text-accent hover:underline">
           Back to my space
         </Link>
@@ -138,19 +137,15 @@ function Reserve({ inv }: { inv: InvitationDto }) {
                 <p className="text-xs text-slate-600 tabular">{bothUnits(milli, locked)}</p>
               </div>
             </div>
-            <p className="mt-4 text-sm text-slate-700">
-              Reserving asks {inv.forwarder.displayName} to countersign. Your funds are locked only when you sign the allocation in the next step, and they stay
-              in your own allocation until the container fills.
-            </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <Button onClick={reserve.openSheet} disabled={expired || !!textError}>
                 Reserve {formatCbm(milli)} CBM
               </Button>
               <Button variant="ghost" onClick={decline.openSheet}>
-                Decline invitation
+                Decline
               </Button>
             </div>
-            {expired && <p className="mt-2 text-sm font-semibold text-red-800">The lock time has passed; this invitation can no longer be used.</p>}
+            {expired && <p className="mt-2 text-sm font-semibold text-red-800">Expired</p>}
           </Card>
         </div>
         <Card title="Terms">
@@ -171,20 +166,14 @@ function Reserve({ inv }: { inv: InvitationDto }) {
 
       <ConfirmSheet
         open={reserve.open}
-        title="Request this reservation"
+        title="Reserve"
         rows={[
           { label: "Space", value: `${formatCbm(milli)} CBM` },
           { label: "Price", value: `${formatUsdc(locked)} USDCx` },
           { label: "Free withdrawal until", value: formatDateTime(t.lockTime) },
-          { label: "Deadline", value: formatDateTime(t.deadline) },
+          { label: "Only if full by", value: formatDateTime(t.deadline) },
+          { label: "If not full", value: "Refund + bonus" },
         ]}
-        consequence={
-          <p>
-            If the container reaches {cbm(t.threshold)} CBM before the deadline, {formatUsdc(locked)} USDCx settles to {inv.forwarder.displayName}. If it
-            doesn&apos;t, your funds are released and you can claim a share of the {t.bond.display} USDCx failure bond. Other importers will never see this
-            reservation.
-          </p>
-        }
         confirmLabel="Request reservation"
         busy={reserve.busy}
         error={reserve.error}
@@ -193,9 +182,8 @@ function Reserve({ inv }: { inv: InvitationDto }) {
       />
       <ConfirmSheet
         open={decline.open}
-        title="Decline this invitation"
+        title="Decline"
         rows={[{ label: "Campaign", value: inv.title }]}
-        consequence={<p>The invitation is removed. You would need a new invitation from {inv.forwarder.displayName} to join this container.</p>}
         confirmLabel="Decline"
         tone="danger"
         busy={decline.busy}

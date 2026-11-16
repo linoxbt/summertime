@@ -20,7 +20,6 @@ import {
   InlineError,
   KeyValues,
   LoadingState,
-  Notice,
   PageHeader,
   PrivacyLine,
   Spinner,
@@ -160,20 +159,15 @@ function Position() {
 
       <ConfirmSheet
         open={commit.open}
-        title="Review and sign your allocation"
+        title="Sign and commit"
         rows={[
           { label: "You lock", value: pos.locked ? `${pos.locked.display} USDCx` : "—" },
           { label: "Space", value: pos.reserved ? `${cbm(pos.reserved)} CBM` : "—" },
           { label: "Paid to", value: pos.forwarder.displayName },
           { label: "Only if full by", value: formatDateTime(t.deadline) },
+          { label: "If not full", value: "Refund + bonus" },
+          { label: "Free withdrawal until", value: formatDateTime(t.lockTime) },
         ]}
-        consequence={
-          <p>
-            Your USDCx is locked in your own allocation, not sent to anyone. If the container fills before the deadline, it settles to{" "}
-            {pos.forwarder.displayName} together with every other importer&apos;s payment. If not, it becomes available to you again and you can claim a share
-            of the failure bond. You can withdraw freely until {formatDateTime(t.lockTime)}.
-          </p>
-        }
         confirmLabel="Sign and commit"
         busy={commit.busy}
         error={commit.error}
@@ -182,7 +176,7 @@ function Position() {
       >
         <CustodyNotice />
         <details className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-          <summary className="cursor-pointer font-semibold text-ink">Allocation details (what you sign)</summary>
+          <summary className="cursor-pointer font-semibold text-ink">What you sign</summary>
           {intent.isPending ? (
             <p className="mt-2 flex items-center gap-2 text-slate-600">
               <Spinner className="h-4 w-4" /> Loading…
@@ -207,18 +201,12 @@ function Position() {
       </ConfirmSheet>
       <ConfirmSheet
         open={withdraw.open}
-        title="Withdraw from this container"
+        title="Withdraw"
         rows={[
           { label: "Released to you", value: pos.locked ? `${pos.locked.display} USDCx` : "—" },
           { label: "Space given up", value: pos.reserved ? `${cbm(pos.reserved)} CBM` : "—" },
-          { label: "Free until", value: formatDateTime(t.lockTime) },
+          { label: "Penalty", value: "None" },
         ]}
-        consequence={
-          <p>
-            Your funds are released now, with no penalty. You give up your space and any claim to the failure bond, and you would need a new invitation to
-            rejoin.
-          </p>
-        }
         confirmLabel="Withdraw"
         tone="danger"
         busy={withdraw.busy}
@@ -230,13 +218,12 @@ function Position() {
       </ConfirmSheet>
       <ConfirmSheet
         open={claim.open}
-        title="Claim your failure bonus"
+        title="Claim bonus"
         rows={[
           { label: "Bonus", value: pos.bonus ? `${pos.bonus.display} USDCx` : "—" },
           { label: "Funds released", value: pos.locked ? `${pos.locked.display} USDCx` : "—" },
           { label: "Claim by", value: formatDateTime(t.claimWindowEnd) },
         ]}
-        consequence={<p>Your locked USDCx is released to you, and Summertime pays your share of the forwarder&apos;s bond from the custody it holds.</p>}
         confirmLabel="Claim bonus"
         busy={claim.busy}
         error={claim.error}
@@ -247,18 +234,11 @@ function Position() {
       </ConfirmSheet>
       <ConfirmSheet
         open={release.open}
-        title="Release your funds"
+        title="Release funds"
         rows={[
           { label: "Released to you", value: pos.locked ? `${pos.locked.display} USDCx` : "—" },
           ...(pos.bonus ? [{ label: "Unclaimed bonus forfeited", value: `${pos.bonus.display} USDCx` }] : []),
         ]}
-        consequence={
-          <p>
-            {pos.bonus
-              ? "Claiming your bonus also releases your funds. Releasing without claiming gives up the bonus."
-              : "Your allocation is cancelled and the USDCx returns to your available balance."}
-          </p>
-        }
         confirmLabel="Release funds"
         tone={pos.bonus ? "danger" : "primary"}
         busy={release.busy}
@@ -284,73 +264,40 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 function StageBody({ pos, settledUpdateId }: { pos: PositionDto; settledUpdateId?: string }) {
-  const f = pos.forwarder.displayName;
+  const t = pos.terms;
+  const line = (text: string, spin = false) => (
+    <p className="flex items-center gap-2 font-semibold text-ink">
+      {spin && <Spinner className="h-5 w-5 text-accent" />}
+      {text}
+    </p>
+  );
   switch (pos.stage) {
     case "requested":
-      return (
-        <div className="flex items-start gap-3">
-          <Spinner className="mt-0.5 h-5 w-5 text-accent" />
-          <div>
-            <p className="font-semibold text-ink">Waiting for {f} to countersign</p>
-            <p className="text-sm text-slate-700">Your request is checked against the container&apos;s remaining space. Nothing is locked yet.</p>
-          </div>
-        </div>
-      );
+      return line("Awaiting countersignature", true);
     case "awaiting-signature":
-      return (
-        <div>
-          <p className="font-semibold text-ink">Your space is reserved. Sign to commit.</p>
-          <p className="text-sm text-slate-700">
-            {f} countersigned your reservation at a fixed price. Sign your USDCx allocation before {formatDateTime(pos.terms.lockTime)} or the reservation
-            lapses.
-          </p>
-        </div>
-      );
+      return line(`Reserved · sign by ${formatDateTime(t.lockTime)}`);
     case "committed":
-      return (
-        <div>
-          <p className="font-semibold text-ink">Committed</p>
-          <p className="text-sm text-slate-700">
-            {pos.phase === "open"
-              ? `Your funds are locked in your own allocation. You can withdraw freely until ${formatDateTime(pos.terms.lockTime)}.`
-              : `The lock time has passed. If the container fills before ${formatDateTime(pos.terms.deadline)}, your payment settles together with everyone else's.`}
-          </p>
-        </div>
-      );
+      return line(pos.phase === "open" ? `Committed · free withdrawal until ${formatDateTime(t.lockTime)}` : `Locked · settles if full by ${formatDateTime(t.deadline)}`);
     case "settled":
       return (
         <div>
-          <p className="text-lg font-semibold text-green-800">Settled. Your space is booked.</p>
-          <p className="text-sm text-slate-700">Your payment settled to {f} in one transaction with every other importer&apos;s.</p>
-          {settledUpdateId && <p className="mt-2 font-mono text-xs text-slate-600">Update {shortId(settledUpdateId, 14)}</p>}
+          <p className="text-lg font-semibold text-green-800">Settled · space booked</p>
+          {settledUpdateId && <p className="mt-1 font-mono text-xs text-slate-600">Update {shortId(settledUpdateId, 14)}</p>}
         </div>
       );
     case "withdrawn":
-      return <p className="text-slate-700">You withdrew before the lock time. Your funds were released with no penalty.</p>;
+      return line("Withdrawn · funds released");
     case "claimable":
-      return (
-        <div>
-          <p className="font-semibold text-ink">Your funds are not being used. Claim your bonus.</p>
-          <p className="text-sm text-slate-700">The container was not settled with your commitment, so you are owed a share of {f}&apos;s failure bond.</p>
-        </div>
-      );
+      return line("Not settled · bonus available");
     case "bonus-pending":
-      return (
-        <div className="flex items-start gap-3">
-          <Spinner className="mt-0.5 h-5 w-5 text-accent" />
-          <div>
-            <p className="font-semibold text-ink">Summertime is paying your bonus</p>
-            <p className="text-sm text-slate-700">Your locked funds have been released. The bonus arrives in your balance shortly.</p>
-          </div>
-        </div>
-      );
+      return line("Paying bonus", true);
     case "bonus-paid":
-      return <p className="font-semibold text-ink">Bonus paid. Your funds were released and your share of the bond is in your balance.</p>;
+      return line("Bonus paid · funds released");
     case "released":
-      return <p className="text-slate-700">Your funds were released after the deadline.</p>;
+      return line("Funds released");
     case "lapsed":
-      return <Notice>This reservation lapsed: the lock time passed before it was signed, or the funds were withdrawn after the lock time.</Notice>;
+      return line("Lapsed");
     default:
-      return <p className="text-slate-700">Invited.</p>;
+      return line("Invited");
   }
 }

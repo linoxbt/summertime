@@ -7,7 +7,7 @@ import type { BookingDto, DisputeDto, ForwarderCampaignDetail, PositionDto } fro
 import { api } from "@/lib/api";
 import { useAction } from "@/lib/action";
 import { formatDateTime } from "@/lib/format";
-import { Badge, Button, Card, ConfirmSheet, EmptyState, Field, InlineError, Notice, inputClass } from "@/components/ui";
+import { Badge, Button, Card, ConfirmSheet, EmptyState, Field, InlineError, inputClass } from "@/components/ui";
 
 function formatEtd(date: string): string {
   const d = new Date(`${date}T00:00:00Z`);
@@ -38,9 +38,8 @@ function DisputeItem({ d, children }: { d: DisputeDto; children?: React.ReactNod
         {d.importer.displayName} · opened {formatDateTime(d.openedAt)}
       </p>
       {d.details && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{d.details.replace(/\n\n— .*$/, "")}</p>}
-      <p className="mt-2 text-xs text-slate-600">
-        Evidence fingerprint on the ledger: <span className="break-all font-mono">{d.evidenceHash.slice(0, 16)}…</span>{" "}
-        {d.evidenceVerified ? "(matches the stored details)" : "(stored details unavailable or changed)"}
+      <p className="mt-2 font-mono text-xs text-slate-500" title="SHA-256 of the details, recorded on the ledger">
+        {d.evidenceHash.slice(0, 16)}… {d.evidenceVerified ? "✓ verified" : "unverified"}
       </p>
       {d.resolution && (
         <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm">
@@ -104,10 +103,6 @@ export function ForwarderAftercare({ campaign, onDone }: { campaign: ForwarderCa
               if (valid) issue.openSheet();
             }}
           >
-            <p className="text-sm text-slate-700">
-              Confirm the booking to {missing === settledCount ? "every settled importer" : `the ${missing} importer${missing === 1 ? "" : "s"} without one`}. Each
-              importer sees only their own confirmation.
-            </p>
             <Field label="Booking reference">
               <input className={inputClass} value={ref} onChange={(e) => setRef(e.target.value)} maxLength={64} />
             </Field>
@@ -124,13 +119,13 @@ export function ForwarderAftercare({ campaign, onDone }: { campaign: ForwarderCa
             </Button>
           </form>
         ) : (
-          <p className="text-sm text-slate-700">Every settled importer has a booking confirmation.</p>
+          <p className="text-sm text-slate-700">All booked</p>
         )}
       </Card>
 
       <Card title={`Disputes${open.length ? ` (${open.length} open)` : ""}`}>
         {campaign.disputes.length === 0 ? (
-          <EmptyState title="No disputes">Importers can raise a problem about their settled shipment here.</EmptyState>
+          <EmptyState title="No disputes" />
         ) : (
           <ul className="space-y-3">
             {campaign.disputes.map((d) => (
@@ -140,7 +135,6 @@ export function ForwarderAftercare({ campaign, onDone }: { campaign: ForwarderCa
             ))}
           </ul>
         )}
-        <p className="mt-3 text-xs text-slate-600">Refunds after settlement are handled off-ledger under your forwarder agreement.</p>
       </Card>
 
       <ConfirmSheet
@@ -152,7 +146,6 @@ export function ForwarderAftercare({ campaign, onDone }: { campaign: ForwarderCa
           { label: "Container", value: containerNo.trim() || "To be assigned" },
           { label: "Importers", value: String(missing) },
         ]}
-        consequence={<p>Each settled importer receives their own confirmation on the ledger and is asked to acknowledge it. You can amend the ETD later.</p>}
         confirmLabel="Issue confirmation"
         busy={issue.busy}
         error={issue.error}
@@ -181,7 +174,6 @@ function ResolveDispute({ dispute, onDone }: { dispute: DisputeDto; onDone: () =
           { label: "Importer", value: dispute.importer.displayName },
           { label: "Dispute", value: dispute.subject },
         ]}
-        consequence={<p>The resolution is recorded on the ledger and held by both you and {dispute.importer.displayName}. It cannot be edited afterwards.</p>}
         confirmLabel="Record resolution"
         busy={resolve.busy}
         error={resolve.error}
@@ -218,7 +210,7 @@ export function ImporterAftercare({ pos, onDone }: { pos: PositionDto; onDone: (
           <>
             <BookingSummary b={b} />
             {b.acknowledgedAt ? (
-              <p className="mt-3 text-sm text-slate-700">You acknowledged this booking on {formatDateTime(b.acknowledgedAt)}.</p>
+              <p className="mt-3 text-sm text-slate-700">Acknowledged · {formatDateTime(b.acknowledgedAt)}</p>
             ) : (
               <Button className="mt-3" onClick={ack.openSheet}>
                 Acknowledge booking
@@ -226,11 +218,11 @@ export function ImporterAftercare({ pos, onDone }: { pos: PositionDto; onDone: (
             )}
           </>
         ) : (
-          <p className="text-sm text-slate-700">{pos.forwarder.displayName} will confirm your booking reference and departure date here.</p>
+          <p className="text-sm text-slate-700">Awaiting booking</p>
         )}
       </Card>
 
-      <Card title="Problems with this shipment">
+      <Card title="Problems">
         {pos.disputes.length > 0 && (
           <ul className="mb-3 space-y-3">
             {pos.disputes.map((d) => (
@@ -250,7 +242,7 @@ export function ImporterAftercare({ pos, onDone }: { pos: PositionDto; onDone: (
               <Field label="What went wrong?">
                 <input className={inputClass} value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={140} />
               </Field>
-              <Field label="Details" hint="Kept off the ledger; the ledger stores a fingerprint (hash) that proves what you submitted.">
+              <Field label="Details">
                 <textarea className={`${inputClass} min-h-28`} value={details} onChange={(e) => setDetails(e.target.value)} maxLength={5000} />
               </Field>
               <InlineError error={dispute.error} />
@@ -268,15 +260,13 @@ export function ImporterAftercare({ pos, onDone }: { pos: PositionDto; onDone: (
               Report a problem
             </Button>
           ))}
-        {!pos.actions.canDispute && pos.disputes.length === 0 && <p className="text-sm text-slate-700">No problems reported.</p>}
-        <Notice>Only you and {pos.forwarder.displayName} can see a dispute. Refunds after settlement are handled under the forwarder agreement.</Notice>
+        {!pos.actions.canDispute && pos.disputes.length === 0 && <p className="text-sm text-slate-700">None</p>}
       </Card>
 
       <ConfirmSheet
         open={ack.open}
         title="Acknowledge booking"
         rows={b ? [{ label: "Booking", value: b.bookingRef }, { label: "ETD", value: formatEtd(b.etd) }] : []}
-        consequence={<p>You confirm you have received this booking. If {pos.forwarder.displayName} changes the departure date, you will be asked again.</p>}
         confirmLabel="Acknowledge"
         busy={ack.busy}
         error={ack.error}
@@ -290,7 +280,6 @@ export function ImporterAftercare({ pos, onDone }: { pos: PositionDto; onDone: (
           { label: "With", value: pos.forwarder.displayName },
           { label: "About", value: subject.trim() },
         ]}
-        consequence={<p>{pos.forwarder.displayName} is notified and can record a resolution. Your details stay off the ledger; their fingerprint is recorded on it.</p>}
         confirmLabel="Open dispute"
         busy={dispute.busy}
         error={dispute.error}

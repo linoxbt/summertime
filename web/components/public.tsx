@@ -40,14 +40,14 @@ export function PublicFooter() {
           <p className="mt-2">Commit together. Settle together.</p>
         </div>
         <div className="space-y-1 sm:text-right">
-          <p>Summertime is unaudited. Built on Canton Network.</p>
+          <p>Unaudited · Built on Canton</p>
           <p>
             <Link href="/privacy" className="font-semibold text-accent hover:underline">
-              Privacy and trust model
+              Privacy
             </Link>{" "}
             ·{" "}
             <a href="https://github.com/linoxbt/summertime" className="font-semibold text-accent hover:underline">
-              Source and specification
+              Source
             </a>
           </p>
         </div>
@@ -80,26 +80,13 @@ export function Section({ id, eyebrow, title, children, tinted }: { id?: string;
 
 export function TrustTable() {
   const rows = [
-    {
-      party: "Importer",
-      can: "See its own reservation, commitment, receipts and rounded aggregate progress.",
-      cannot: "See any other importer's identity, volume or payment.",
-    },
-    {
-      party: "Forwarder",
-      can: "See every reservation in its campaigns; choose when to settle once the threshold is met, and which committed importers to include.",
-      cannot:
-        "Settle below the threshold or after the deadline; overbook the container; skip the bond lock or cancel an importer's bonus; change terms once the campaign exists.",
-    },
-    {
-      party: "Summertime (operator)",
-      can: "Co-sign campaigns with valid terms; hold the failure bond; lock it at the lock time; pay bonuses.",
-      cannot: "Move importer funds; settle a campaign on its own.",
-    },
+    { party: "Importer", can: "See own reservation, receipts, rounded progress", cannot: "See other importers" },
+    { party: "Forwarder", can: "See all reservations; choose when to settle", cannot: "Settle below threshold or late; overbook; void bonuses" },
+    { party: "Summertime", can: "Co-sign campaigns; hold and pay the bond", cannot: "Move importer funds; settle alone" },
   ];
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 focus-visible:outline-2 focus-visible:outline-accent" tabIndex={0} role="region" aria-label="Trust model table (scrolls sideways)">
-      <table className="w-full min-w-[640px] text-left text-sm">
+      <table className="w-full min-w-[520px] text-left text-sm">
         <thead className="bg-slate-50 text-ink">
           <tr>
             <th className="px-4 py-3 font-semibold">Party</th>

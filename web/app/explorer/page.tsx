@@ -6,7 +6,6 @@ import type { ExplorerPane, SessionUser } from "@summertime/ledger";
 import { api } from "@/lib/api";
 import { shortId, shortParty } from "@/lib/format";
 import { AppShell } from "@/components/shell";
-import { PRIVACY_PROMISE } from "@/components/public";
 import { Badge, EmptyState, ErrorState, LoadingState, PageHeader, Spinner, inputClass } from "@/components/ui";
 
 interface DemoAccount {
@@ -49,9 +48,8 @@ function Explorer() {
     <>
       <PageHeader
         title="Privacy explorer"
-        subtitle="Each pane is read from that party's own ledger view on Canton, not from a shared database. Demo environment only."
+        subtitle="Each pane is that party's own ledger view"
       />
-      <blockquote className="mb-5 border-l-4 border-accent bg-white px-4 py-3 text-sm font-medium text-ink">&ldquo;{PRIVACY_PROMISE}&rdquo;</blockquote>
       {campaigns.isPending || accounts.isPending ? (
         <LoadingState label="Loading campaigns…" />
       ) : campaigns.isError ? (
@@ -59,7 +57,7 @@ function Explorer() {
       ) : accounts.isError ? (
         <ErrorState error={accounts.error} onRetry={() => accounts.refetch()} />
       ) : campaigns.data.length === 0 ? (
-        <EmptyState title="No campaigns yet">Create a campaign as a forwarder, then come back to compare each party&apos;s view.</EmptyState>
+        <EmptyState title="No campaigns yet" />
       ) : (
         <>
           <div className="mb-5 grid gap-3 sm:grid-cols-3">
@@ -138,7 +136,6 @@ function Pane({ campaignId, handle }: { campaignId: string; handle: string }) {
         ) : q.data.contracts.length === 0 ? (
           <div className="flex h-full min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 p-4 text-center">
             <p className="font-semibold text-ink">Nothing visible to this party</p>
-            <p className="mt-1 text-xs text-slate-600">No contract of this campaign has this party as a signatory or observer.</p>
           </div>
         ) : (
           <ul className="space-y-2">

@@ -55,7 +55,7 @@ try {
   await fwd.getByLabel("Min per importer").fill("1");
   await fwd.getByLabel("Max per importer").fill("15");
   await fwd.getByRole("button", { name: /Demo: lock in 5 min/ }).click();
-  await fwd.getByLabel("Bond (USDCx)").fill("200");
+  await fwd.getByLabel(/^Bond \(USDCx/).fill("200");
   await fwd.screenshot({ path: `${SHOTS}forwarder-new.png`, fullPage: true });
   await fwd.getByRole("button", { name: "Propose campaign" }).click();
   await fwd.getByRole("button", { name: "Send bond" }).first().click();
@@ -101,7 +101,7 @@ try {
   await fwd.screenshot({ path: `${SHOTS}forwarder-ready.png`, fullPage: true });
   await settle.click();
   await confirmSheet(fwd, "Settle now");
-  await fwd.getByText(/This campaign has ended|Settled/).first().waitFor({ timeout: 60_000 });
+  await fwd.getByText(/^Ended$|^Settled$/).first().waitFor({ timeout: 60_000 });
   await fwd.screenshot({ path: `${SHOTS}forwarder-settled.png`, fullPage: true });
   log("forwarder settled all six legs");
 
@@ -121,14 +121,14 @@ try {
   await fwd.getByLabel("Container number").fill("MSCU 123456-7");
   await fwd.getByRole("button", { name: "Issue booking confirmation" }).click();
   await confirmSheet(fwd, "Issue confirmation");
-  await fwd.getByText("Every settled importer has a booking confirmation.").waitFor({ timeout: 30_000 });
+  await fwd.getByText("All booked", { exact: true }).waitFor({ timeout: 30_000 });
   log("forwarder issued booking confirmations to all six importers");
 
   await ada.reload();
   await ada.getByText("HBF-GZ-LOS-0412").waitFor({ timeout: 30_000 });
   await ada.getByRole("button", { name: "Acknowledge booking" }).click();
   await confirmSheet(ada, "Acknowledge");
-  await ada.getByText(/You acknowledged this booking/).waitFor({ timeout: 30_000 });
+  await ada.getByText(/^Acknowledged ·/).waitFor({ timeout: 30_000 });
   await ada.getByRole("button", { name: "Report a problem" }).click();
   await ada.getByLabel("What went wrong?").fill("Two cartons missing at Apapa");
   await ada.getByLabel("Details").fill("Delivery note lists 48 cartons; we received 46. Photos sent to the forwarder by email.");

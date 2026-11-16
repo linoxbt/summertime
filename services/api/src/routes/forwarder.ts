@@ -275,10 +275,10 @@ export function forwarderRoutes(app: FastifyInstance, ctx: AppContext) {
       .filter((c) => c.payload.campaignId === s.id && live.has(c.payload.allocationCid))
       .reduce((a, c) => a + BigInt(c.payload.reservedMilliCbm), 0n);
     const blockers: string[] = [];
-    if (!s.campaign) blockers.push(s.status === "proposed" ? "The campaign is not open yet." : "The campaign is already final.");
-    if (s.campaign && Date.now() >= Date.parse(s.terms.deadline)) blockers.push("The deadline has passed.");
+    if (!s.campaign) blockers.push(s.status === "proposed" ? "Not open yet" : "Already final");
+    if (s.campaign && Date.now() >= Date.parse(s.terms.deadline)) blockers.push("Deadline passed");
     if (liveCommitted < BigInt(s.terms.thresholdMilliCbm))
-      blockers.push(`Committed capacity (${formatCbm(liveCommitted)} CBM) is below the threshold (${formatCbm(s.terms.thresholdMilliCbm)} CBM).`);
+      blockers.push(`${formatCbm(liveCommitted, 0)} / ${formatCbm(s.terms.thresholdMilliCbm, 0)} CBM committed`);
     const bondSent = await updateIdFor(ctx, "campaign.bond", s.id);
     const bondStage: ForwarderCampaignDetail["bond"]["stage"] = s.bond
       ? s.bond.payload.locked

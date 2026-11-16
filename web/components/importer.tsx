@@ -51,7 +51,7 @@ export function BalanceChip({ showFaucet = true }: { showFaucet?: boolean }) {
 export function ProgressPanel({ progress }: { progress: ProgressDto | undefined }) {
   if (!progress || progress.hidden) {
     return (
-      <p className="text-sm text-slate-600">Progress appears once three importers have committed. It never shows who they are or how much each reserved.</p>
+      <p className="text-sm text-slate-600">Hidden until 3 importers commit</p>
     );
   }
   const filled = percent(progress.reservedCbm, progress.capacityCbm);
@@ -75,7 +75,7 @@ export function ProgressPanel({ progress }: { progress: ProgressDto | undefined 
         </span>{" "}
         committed{progress.participantCount !== null ? ` by ${progress.participantCount} importers` : ""} · threshold {progress.thresholdCbm} CBM
       </p>
-      <p className="mt-1 text-xs text-slate-600">Rounded down to whole CBM and updated on a schedule. As of {formatDateTime(progress.asOf)}.</p>
+      <p className="mt-1 text-xs text-slate-600">As of {formatDateTime(progress.asOf)}</p>
     </div>
   );
 }
@@ -100,7 +100,6 @@ export function ReceiptList({ receipts }: { receipts: ReceiptDto[] }) {
           <p className="mt-1 font-semibold text-ink tabular">
             {r.kind === "BonusPaid" ? `${r.amount.display} USDCx` : `${cbm(r.reserved)} CBM · ${r.amount.display} USDCx`}
           </p>
-          <p className="text-slate-700">{r.note}</p>
           {r.updateId && (
             <p className="mt-1 text-xs">
               <span className="mr-1 text-slate-600">Update ID</span>
@@ -118,6 +117,6 @@ export function ReceiptsQuery() {
   if (q.isPending) return <LoadingState label="Loading receipts…" />;
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
   if (q.data.length === 0)
-    return <EmptyState title="No receipts yet">Receipts appear when your commitments settle, are withdrawn or released, or a bonus is paid.</EmptyState>;
+    return <EmptyState title="No receipts yet" />;
   return <ReceiptList receipts={q.data} />;
 }
