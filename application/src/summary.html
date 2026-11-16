@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Summertime — Executive Summary</title>
+<style>
+  @page { size: A4; margin: 0; }
+  :root { --ink: #0f172a; --body: #334155; --muted: #64748b; --line: #e2e8f0; --soft: #f8fafc; --accent: #b45309; --accent-soft: #fef3c7; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: "Inter", sans-serif; color: var(--body); font-size: 8.9pt; line-height: 1.38; font-feature-settings: "tnum" 1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 210mm; height: 297mm; padding: 12mm 14mm 10mm; overflow: hidden; display: flex; flex-direction: column; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--ink); padding-bottom: 8px; margin-bottom: 12px; }
+  h1 { font-family: "Inter Display", "Inter", sans-serif; font-size: 22pt; color: var(--ink); margin: 0; line-height: 1; }
+  .tagline { color: var(--accent); font-weight: 600; font-size: 10pt; margin-top: 4px; }
+  .meta { text-align: right; font-size: 7.8pt; color: var(--muted); line-height: 1.5; }
+  h2 { font-size: 8.6pt; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); margin: 8px 0 3px; }
+  p { margin: 0 0 6px; }
+  .lead { font-size: 9.3pt; color: var(--ink); line-height: 1.45; margin-bottom: 4px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+  ul { margin: 0 0 4px; padding-left: 16px; } li { margin-bottom: 2px; }
+  .quote { border-left: 3px solid var(--accent); padding: 4px 0 4px 10px; color: var(--ink); font-style: italic; margin: 4px 0 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 8pt; margin: 2px 0 4px; }
+  th { text-align: left; border-bottom: 1.5px solid var(--ink); padding: 3px 6px 3px 0; color: var(--ink); }
+  td { border-bottom: 1px solid var(--line); padding: 3px 6px 3px 0; vertical-align: top; }
+  .box { background: var(--soft); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; margin: 4px 0 6px; }
+  .box.acc { background: var(--accent-soft); border-color: #f59e0b; }
+  .foot { margin-top: auto; font-size: 7.2pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 6px; }
+  b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div><h1>Summertime</h1><div class="tagline">Commit together. Settle together.</div></div>
+    <div class="meta">Executive summary · November 2026<br>AppsFactory Accelerator, Cohort 2<br>github.com/linoxbt/summertime</div>
+  </header>
+
+  <p class="lead">Summertime lets competing importers reserve space in a shared shipping container without seeing each other's volumes or identities. Each importer locks USDCx against a forwarder-signed reservation. If the container fills before the deadline, every payment settles to the forwarder in <b>one atomic Canton transaction</b>. If it doesn't, every importer's funds are released and each claims a share of a failure bond the forwarder posted upfront.</p>
+
+  <div class="cols">
+    <div>
+      <h2>Problem</h2>
+      <p>Small importers can't fill a container alone, so they share one (groupage). On the China–Lagos route, each pays the consolidator upfront and hopes the container fills. Four failures follow:</p>
+      <ul>
+        <li><b>Pay-first risk:</b> money moves before the container is confirmed full.</li>
+        <li><b>First-mover reluctance:</b> nobody wants to commit first, so containers fill slowly.</li>
+        <li><b>Competitive leakage:</b> importers learn each other's volumes through the shared shipment.</li>
+        <li><b>Partial execution:</b> some pay, some don't; shipments slip and refunds are disputed.</li>
+      </ul>
+
+      <h2>Solution</h2>
+      <ul>
+        <li>The forwarder opens a campaign: capacity, rate per CBM, deadline, and a 1–5% failure bond.</li>
+        <li>Importers reserve privately and lock USDCx in their own token-standard allocation.</li>
+        <li>Full container: one atomic transaction pays the forwarder. Not full: funds released, bond shared.</li>
+      </ul>
+      <p class="quote">"Competing importers cannot see each other's reservations, volumes or identities. Your forwarder sees your reservation, exactly as it does today, and so does Summertime, which enforces the settlement rules. Funds move only if the container fills."</p>
+
+      <h2>Why Canton</h2>
+      <p>Sub-transaction privacy (each importer sees only its own leg), atomic multi-party settlement, and CIP-56 token allocations with USDCx. A public chain would expose every competitor's volume.</p>
+    </div>
+    <div>
+      <h2>Progress (verifiable in the public repository)</h2>
+      <ul>
+        <li>51-page build specification (v1.1) with privacy model, threat model and test plan, after a design review that fixed four critical flaws before coding.</li>
+        <li><b>summertime-core:</b> 16 Daml templates on SDK 3.7.1 against the Canton token-standard V1 interfaces.</li>
+        <li><b>20 automated tests passing:</b> atomic six-leg settlement; exact failure bonuses; the forwarder cannot settle alone, overbook, or avoid the bond; importers cannot see each other.</li>
+        <li>Not yet: DevNet deployment, app UI, users or revenue.</li>
+      </ul>
+
+      <h2>Market and customer</h2>
+      <p><b>Buyer:</b> independent forwarders running groupage containers, China–Lagos. <b>User:</b> SME importers shipping 1–15 CBM. <b>Ideal first customer:</b> a forwarder running two or more groupage containers a month with importers it knows by name. Market size will be built from interview data rather than estimated without a source.</p>
+
+      <h2>Business model (hypothesis)</h2>
+      <table>
+        <tr><th>Stream</th><th>Timing</th></tr>
+        <tr><td>Success fee, 0.5–1% of settled value, paid by the forwarder only when the container fills</td><td>Pilot onward</td></tr>
+        <tr><td>Forwarder subscription (management, reporting)</td><td>After 3 paying forwarders</td></tr>
+        <tr><td>Commitment-engine API for other Canton apps</td><td>Phase 3</td></tr>
+      </table>
+
+      <h2>Go-to-market</h2>
+      <p>Sign one forwarder; it onboards the importers it already serves. Expand forwarder by forwarder. <b>Growth metric:</b> containers filled per week (secondary: days to fill).</p>
+    </div>
+  </div>
+
+  <h2>Plan</h2>
+  <table>
+    <tr><th style="width:24%">When</th><th>Milestone</th></tr>
+    <tr><td>Nov – early Dec 2026</td><td>LocalNet privacy tests; API, worker and UIs; DevNet deployment; 5 forwarder and 10 importer interviews; one pilot agreement; one failed and one successful real campaign</td></tr>
+    <tr><td>Accelerator weeks 1–8</td><td>Validate one segment and metric (weeks 1–2); real users via forwarder-led onboarding (3–6); investors, partners and Demo Day (7–8)</td></tr>
+    <tr><td>2027</td><td>Wallet mode; TestNet then MainNet USDCx; neutral bond escrow; commitment-engine API</td></tr>
+  </table>
+
+  <div class="cols" style="margin-top:4px">
+    <div class="box"><b>Team.</b> Solo founder covering product, Daml contracts, backend and customer development. Hiring follows the pilot.</div>
+    <div class="box acc"><b>Help sought from Cohort 2:</b> fundraising (pre-seed, sized from pilot data), go-to-market (first forwarder, one proven channel), technical architecture (DevNet, USDCx, audit path).</div>
+  </div>
+
+  <div class="foot">Risks we track openly: no pilot forwarder signed yet; DevNet access and USDCx availability on DevNet (fallback: Canton Coin, same code); bond custody by the operator until a neutral escrow ships; physical delivery stays off-ledger and contractual. Summertime is unaudited.</div>
+</div>
+</body>
+</html>

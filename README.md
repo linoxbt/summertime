@@ -8,6 +8,10 @@ Summertime lets competing importers reserve space in a shared shipping container
 
 - [`daml/`](daml/) — `summertime-core` contracts and `summertime-test` Daml Script tests (20 passing). See [daml/README.md](daml/README.md).
 
+## Accelerator application
+
+- [AppsFactory Cohort 2 application pack](application/README.md): pitch deck, executive summary and form answers.
+
 ## Documentation
 
 - [Build specification (Markdown)](docs/Summertime_Build_Specification.md)
