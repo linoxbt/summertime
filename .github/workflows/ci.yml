@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DAML_SDK_VERSION: "3.7.1"
+
+jobs:
+  daml:
+    name: Daml contracts and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install dpm (Daml SDK)
+        run: |
+          curl -fsSL https://get.digitalasset.com/install/install.sh | sh -s "$DAML_SDK_VERSION"
+          echo "$HOME/.dpm/bin" >> "$GITHUB_PATH"
+      - name: Verify vendored Splice DARs
+        run: cd daml/dars && sha256sum -c SHA256SUMS
+      - name: Build
+        run: cd daml && dpm build --all
+      - name: Daml Script tests
+        run: cd daml/summertime-test && dpm test
+
+  typescript:
+    name: TypeScript, unit tests and web build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build -w web
+
+  e2e:
+    name: End-to-end against a Canton sandbox
+    runs-on: ubuntu-latest
+    needs: [daml, typescript]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: summertime
+          POSTGRES_PASSWORD: summertime
+          POSTGRES_DB: summertime
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U summertime"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://summertime:summertime@127.0.0.1:5432/summertime
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dpm (Daml SDK)
+        run: |
+          curl -fsSL https://get.digitalasset.com/install/install.sh | sh -s "$DAML_SDK_VERSION"
+          echo "$HOME/.dpm/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+      - name: Install Playwright and Chromium (test-only, not a project dependency)
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+      - run: npm run build -w web
+      - name: Start the stack
+        run: scripts/dev.sh
+      - run: npm run e2e:guards
+      - run: npm run e2e:ops
+      - run: npm run e2e:api
+      - run: npm run e2e:ui
+      - run: npm run e2e:a11y
+      - name: Logs on failure
+        if: failure()
+        run: tail -n 200 .run/*.log
+      - name: Stop the stack
+        if: always()
+        run: scripts/dev.sh stop

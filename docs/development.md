@@ -55,7 +55,10 @@ The sandbox is in-memory: restarting it clears the ledger, and the next bootstra
 | `npm run e2e:api` | Full success and failure campaigns through the API against the live stack (about 5 minutes; waits for real lock times and deadlines) |
 | `npm run e2e:guards` | Authentication, roles, idempotency replays, terms validation and each party's ledger view (about 30 seconds) |
 | `npm run e2e:ops` | Bond custody reconciliation: simulated operator misuse raises an alert, new campaigns are held, and both recover once custody reconciles (about 1 minute) |
+| `npm run e2e:a11y` | axe-core WCAG 2.1 A/AA audit of every page at 360 px and 1280 px, plus a phone overflow check (run after `e2e:ui`) |
 | `npm run e2e:ui` | The success journey in a browser: forwarder on desktop, six importers on phone-sized screens |
+
+CI (`.github/workflows/ci.yml`) runs the Daml tests, typecheck, unit tests and web build on every push, then starts the full stack against a Canton sandbox and Postgres and runs every end-to-end suite.
 
 ## Configuration
 

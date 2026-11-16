@@ -20,7 +20,7 @@ Requires Node 22, PostgreSQL 16 and the Daml SDK 3.7.1 (`dpm`). Details in [docs
 
 | Path | Contents |
 | --- | --- |
-| [`daml/`](daml/) | `summertime-core` contracts and 20 Daml Script tests |
+| [`daml/`](daml/) | `summertime-core` contracts and 22 Daml Script tests |
 | [`packages/ledger`](packages/ledger) | Typed Canton JSON Ledger API and CIP-56 registry clients, shared types |
 | [`packages/platform`](packages/platform) | Config, database schema, deterministic command runner |
 | [`services/api`](services/api) | HTTP API: sessions, party-scoped reads, every user action ([reference](docs/api.md)) |
@@ -33,14 +33,15 @@ Requires Node 22, PostgreSQL 16 and the Daml SDK 3.7.1 (`dpm`). Details in [docs
 
 ## Status
 
-- Runs end to end on a local Canton sandbox. The end-to-end test settles a six-importer container in one transaction, and pays every importer its exact failure bonus when a container does not fill.
+- Runs end to end on a local Canton sandbox: campaigns, private reservations, atomic settlement, failure bonuses, bookings and disputes, and operations monitoring with bond custody reconciliation.
+- Tested: 22 Daml Script tests; unit tests; end-to-end suites for the API (success and failure campaigns), guards (authorization, idempotency, visibility), operations (simulated custody misuse), the browser journey, and a WCAG 2.1 A/AA audit. CI runs them all (`.github/workflows/ci.yml`).
 - Not yet deployed to DevNet; USDCx integration uses the standard CIP-56 registry API and is untested against the real registry. See [docs/development.md](docs/development.md#moving-to-devnet).
 - Pilot mode only: Summertime hosts every party and signs on its behalf. Wallet mode is a later phase.
 - **Unaudited.** Do not use with real funds.
 
 ## Documentation
 
-- [Build specification v1.1](docs/Summertime_Build_Specification.md) ([PDF](docs/Summertime_Build_Specification.pdf)); see "Changes in Version 1.1" for what changed from v1.0 (working name Carde)
+- [Build specification v1.2](docs/Summertime_Build_Specification.md) ([PDF](docs/Summertime_Build_Specification.pdf)); "Implementation Status" records what is built and what changed during implementation; "Changes in Version 1.1" covers the design review of v1.0 (working name Carde)
 - [API reference](docs/api.md)
 - [Developer guide](docs/development.md)
 - [Contracts and tests](daml/README.md)

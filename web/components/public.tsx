@@ -98,7 +98,7 @@ export function TrustTable() {
     },
   ];
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 focus-visible:outline-2 focus-visible:outline-accent" tabIndex={0} role="region" aria-label="Trust model table (scrolls sideways)">
       <table className="w-full min-w-[640px] text-left text-sm">
         <thead className="bg-slate-50 text-ink">
           <tr>

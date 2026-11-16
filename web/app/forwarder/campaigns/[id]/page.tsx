@@ -149,7 +149,7 @@ function CampaignDetail() {
             {c.reservations.length === 0 ? (
               <EmptyState title="No reservations yet">Invite importers; their requests appear here as they reserve.</EmptyState>
             ) : (
-              <div className="-mx-4 overflow-x-auto sm:mx-0">
+              <div className="-mx-4 overflow-x-auto focus-visible:outline-2 focus-visible:outline-accent sm:mx-0" tabIndex={0} role="region" aria-label="Reservations table (scrolls sideways)">
                 <table className="w-full min-w-[560px] text-left text-sm">
                   <thead className="border-b border-slate-200 text-slate-600">
                     <tr>

@@ -2,7 +2,7 @@
 
 **Commit together. Settle together.**
 
-Version 1.1 · 16 November 2026 · Produced from the Carde Master Prompt v2 (ChatGPT's master prompt plus three mandatory design decisions). The product was renamed from Carde to Summertime in version 1.1.
+Version 1.2 · 16 November 2026 · Produced from the Carde Master Prompt v2 (ChatGPT's master prompt plus three mandatory design decisions). The product was renamed from Carde to Summertime in version 1.1. Version 1.2 records the implementation status and the changes made while building it.
 
 **How to read this document.** Every statement is labelled where it matters:
 
@@ -12,6 +12,43 @@ Version 1.1 · 16 November 2026 · Produced from the Carde Master Prompt v2 (Cha
 - **Research** — unresolved; must be answered before the dependent feature ships.
 
 Requirement keywords MUST, SHOULD and MAY are used in their normal specification sense.
+
+---
+
+## Implementation Status (Version 1.2)
+
+The MVP described here is implemented in this repository and runs end to end on a local Canton sandbox (Canton 3.7.1, Daml SDK 3.7.1) with Splice's reference CIP-56 token standing in for USDCx. It has not yet been deployed to DevNet.
+
+| Area | Status | Evidence |
+| --- | --- | --- |
+| Contracts (section 13), including bookings and disputes | Implemented | `daml/summertime-core`; 22 Daml Script tests |
+| API (section 20) | Implemented | `services/api`; reference in `docs/api.md` |
+| Worker automation (section 19.4) and pilot custody | Implemented | `services/worker` |
+| Operations: reconciliation and monitoring (sections 19.3, 28) | Implemented | `services/worker/src/ops.ts`, `GET /ops/status` |
+| Web app (sections 21, 23) | Implemented | `web` |
+| CIP-56 registry integration | Implemented against the standard off-ledger API; tested against a local registry for the reference token | `packages/ledger/src/registry.ts`, `services/dev-registry` |
+| Privacy tests on separate participants (26.2) | Not yet: ledger-view tests pass on one participant; transaction-tree projection tests need LocalNet | — |
+| DevNet deployment, real USDCx | Not yet | — |
+| Wallet mode | Not yet (pilot mode only) | — |
+
+End-to-end suites, all passing against the live stack: success and failure campaigns through the API; authorization, idempotency and visibility guards; bond custody reconciliation under simulated operator misuse; the full browser journey on phone-sized screens through booking and dispute resolution; and a WCAG 2.1 A/AA audit of every page.
+
+### Changes made during implementation
+
+| Item | Specification said | Implemented | Why |
+| --- | --- | --- | --- |
+| Booking and dispute creation | Separate forwarder- and importer-created contracts | Choices on the `Settled` receipt: `Receipt_ConfirmBooking`, `Receipt_OpenDispute` | A booking or dispute always refers to a real settlement |
+| `BookingConfirmation_Acknowledge` | Non-consuming | Consuming; recreates the booking with `acknowledgedAt`; `BookingConfirmation_Amend` clears it | A non-consuming choice leaves no trace in the active contract set |
+| Dispute resolution | `DisputeRecord_Resolve` (consuming) | Creates a `DisputeResolution` signed by both importer and forwarder | Both sides hold the outcome |
+| Dispute evidence | `evidenceHash` field | Evidence text stays in the application database, readable only by the two parties; the ledger holds its SHA-256 hash and the API verifies it | No documents on the ledger; integrity remains provable |
+| `BonusEntitlement`, `BonusPayout` | No reservation size | Carry `reservedMilliCbm` into the `BonusPaid` receipt | The receipt records which reservation the bonus was for |
+| Capacity holds | On-ledger only | The worker also records request→hold in Postgres | A crash between hold and countersign reuses the hold instead of holding twice |
+| Custody alert response | "Pause new campaigns" (section 28) | Enforced: operator automation holds new proposals while the custody check is in alert | Makes the runbook automatic |
+| Bonus split arithmetic | Formula on locked amounts | Computed on reserved milli-CBM (identical result, since every importer shares one rate) | Avoids integer overflow on large campaigns |
+
+### Finding on open question 1
+
+Splice's reference token keeps an allocation fetchable and withdrawable after its `settleBefore`; only execution checks the deadline. The claim check therefore works as designed with that token. Whether the USDCx Registry Utility behaves the same is still open and must be checked on DevNet before choosing between the primary design and the section 18.4 fallback.
 
 ---
 
@@ -1535,7 +1572,7 @@ All screens run on real ledger state with real update IDs; nothing is animated o
 
 ## 41. Open Technical Questions
 
-1. Does the USDCx registry archive allocations at `settleBefore`, or leave them fetchable and withdrawable until cancelled? (Decides between the primary claim check and the section 18.4 fallback.)
+1. Does the USDCx registry archive allocations at `settleBefore`, or leave them fetchable and withdrawable until cancelled? (Decides between the primary claim check and the section 18.4 fallback.) *Splice's reference token keeps them; USDCx is still to be checked (see Implementation Status).*
 2. What is the DevNet USDCx admin party, and how is DevNet USDCx funded?
 3. Do importer parties need a USDCx holder credential?
 4. What are the exact registry endpoints for allocation-factory and execute-transfer choice context and disclosed contracts?
