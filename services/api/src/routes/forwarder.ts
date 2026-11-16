@@ -128,8 +128,12 @@ function stateOf(L: PartyLedger, id: string, label: CampaignLabel, now = new Dat
     campaign,
     bond,
     outcome,
-    committed: commitments.reduce((a, c) => a + BigInt(c.payload.reservedMilliCbm), 0n),
-    committedCount: commitments.length,
+    // Settled commitments are archived; after success, report what settled.
+    committed:
+      outcome?.payload.result === "Succeeded"
+        ? BigInt(outcome.payload.settledMilliCbm)
+        : commitments.reduce((a, c) => a + BigInt(c.payload.reservedMilliCbm), 0n),
+    committedCount: outcome?.payload.result === "Succeeded" ? Number(outcome.payload.legCount) : commitments.length,
   };
 }
 

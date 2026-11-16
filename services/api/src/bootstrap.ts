@@ -8,7 +8,7 @@
 // Idempotent: if the recorded parties still exist on the ledger, nothing happens. If the
 // ledger was reset (the sandbox is in-memory), the application database is reset too.
 
-import { T, TestToken } from "@summertime/ledger";
+import { LedgerError, T, TestToken } from "@summertime/ledger";
 import { CommandRunner, createDb, createLedger, createLogger, getSystemConfig, loadConfig, migrate, setSystemConfig, type Deployment } from "@summertime/platform";
 
 const config = loadConfig();
@@ -51,9 +51,36 @@ await db.query(
   "TRUNCATE users, party_links, sessions, campaign_index, campaign_invitees, command_log, idempotency_keys, ledger_offsets, bond_ledger, capacity_holds, system_config CASCADE",
 );
 
+/** Allocate a party, waiting for the participant to finish connecting to its synchronizer. */
+async function allocate(hint: string): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await ledger.allocateParty(hint);
+    } catch (e) {
+      if (e instanceof LedgerError && e.code === "PARTY_ALLOCATION_WITHOUT_CONNECTED_SYNCHRONIZER" && attempt < 30) {
+        await new Promise((r) => setTimeout(r, 2000));
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
 const suffix = Date.now().toString(36);
-const registryAdmin = await ledger.allocateParty(`SummertimeTestRegistry-${suffix}`);
+const registryAdmin = await allocate(`SummertimeTestRegistry-${suffix}`);
 await ledger.createUser(`u-registry-${suffix}`, registryAdmin, [registryAdmin]);
+
+// DARs passed to the sandbox are uploaded and vetted asynchronously after it reports ready.
+// Wait until both packages answer a query before seeding.
+for (let attempt = 0; ; attempt++) {
+  try {
+    await ledger.activeContracts([registryAdmin], { templates: [TestToken.TokenRules, T.Campaign] });
+    break;
+  } catch (e) {
+    if (attempt >= 60) throw e;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+}
 
 await commands.run("bootstrap.token-rules", {
   commandId: `bootstrap:rules:${suffix}`,
@@ -66,7 +93,7 @@ const instrument = { admin: registryAdmin, id: "USDCx", decimals: 6, symbol: "US
 let operatorParty = "";
 
 for (const a of accounts) {
-  const party = await ledger.allocateParty(`${a.handle}-${suffix}`);
+  const party = await allocate(`${a.handle}-${suffix}`);
   // One Ledger API user per party. In the sandbox there is no auth; on DevNet these users
   // carry exactly CanActAs(party), so the API and worker can only act as intended.
   await ledger.createUser(`u-${a.handle}`, party, [party]);

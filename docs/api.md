@@ -5,7 +5,7 @@ Base URL: `http://localhost:7580` in development. The web app proxies `/api/*` t
 ## Conventions
 
 - **Responses:** `{ "data": … }` on success; `{ "error": { "code": "…", "message": "…" } }` on failure, with an HTTP status of 400 (validation), 401 (no session), 403 (wrong role or not a stakeholder), 404, 409 (state conflict, e.g. `LOCKED`), 422 (ledger rejected the action) or 502 (ledger or registry unavailable).
-- **Amounts:** integer sub-unit strings plus a display string: `Amount = { micro, display }` (micro-USDCx), `Capacity = { milliCbm, display }` (milli-CBM). Types are in `packages/ledger/src/api-types.ts`.
+- **Amounts:** integer sub-unit strings plus a display string without the unit: `Amount = { micro, display }` (micro-USDCx, e.g. `"2,100.00"`), `Capacity = { milliCbm, display }` (milli-CBM, e.g. `"14.000"`). Types are in `packages/ledger/src/api-types.ts`.
 - **Mutations:** every `POST` requires an `Idempotency-Key` header (any unique string, e.g. a UUID). Repeating a request with the same key returns the stored response; reusing a key with a different body returns `409 IDEMPOTENCY_KEY_REUSED`.
 - **Authorization:** a session maps to exactly one party. Every read is made as that party on the ledger, so knowing an ID never grants access (spec section 20).
 - **Session:** cookie `st_session` (HttpOnly, SameSite=Lax).
@@ -41,6 +41,7 @@ Campaign `status`: `proposed` (awaiting bond or operator acceptance) → `open` 
 | Method and path | Body | Returns | Errors |
 | --- | --- | --- | --- |
 | `GET /invitations` | — | `InvitationDto[]` | |
+| `GET /invitations/:cid` | — | `InvitationDto` | `NOT_FOUND` |
 | `POST /invitations/:cid/reserve` | `{ reservedCbm }` (decimal string) | `{ requestCid }` | `BELOW_MIN`, `ABOVE_MAX`, `EXPIRED` |
 | `POST /invitations/:cid/decline` | — | `{ ok: true }` | |
 | `GET /positions` | — | `PositionDto[]` (one per campaign the importer has acted in) | |

@@ -36,7 +36,10 @@ start_bg() {
     echo "• $name already running"
     return
   fi
-  (cd "$ROOT" && nohup "$@" >"$RUN/$name.log" 2>&1 & echo $! >"$RUN/$name.pid")
+  # Own process group per service, so stop can end npm, tsx and node together.
+  # The session leader records its own PID (= process group ID) and execs the service.
+  (cd "$ROOT" && setsid bash -c 'echo $$ >"$0"; exec "$@"' "$RUN/$name.pid" "$@" >"$RUN/$name.log" 2>&1 < /dev/null &)
+  sleep 0.5
   echo "• started $name"
 }
 
@@ -44,8 +47,7 @@ case "${1:-start}" in
   stop)
     for n in web worker api registry sandbox; do
       if [ -f "$RUN/$n.pid" ]; then
-        pkill -TERM -P "$(cat "$RUN/$n.pid")" 2>/dev/null || true
-        kill "$(cat "$RUN/$n.pid")" 2>/dev/null || true
+        kill -TERM -- "-$(cat "$RUN/$n.pid")" 2>/dev/null || kill "$(cat "$RUN/$n.pid")" 2>/dev/null || true
         rm -f "$RUN/$n.pid"
         echo "• stopped $n"
       fi
@@ -88,6 +90,8 @@ if ! up "$LEDGER_URL/v2/version"; then
     --dar "$ROOT/daml/summertime-core/.daml/dist/summertime-core-0.1.0.dar" \
     --dar "$ROOT/daml/dars/splice-test-token-v1-1.0.2.dar"
   wait_for sandbox "$LEDGER_URL/v2/version" 90
+  # The JSON API answers before the participant has joined its synchronizer.
+  for _ in $(seq 1 60); do grep -q "Canton sandbox is ready" "$RUN/sandbox.log" 2>/dev/null && break; sleep 2; done
 fi
 echo "✓ canton sandbox"
 

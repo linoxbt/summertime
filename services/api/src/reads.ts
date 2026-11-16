@@ -35,7 +35,8 @@ import {
 import type { AppContext } from "./context.ts";
 
 export const amount = (micro: string | bigint): Amount => ({ micro: micro.toString(), display: formatUsdc(micro) });
-export const capacity = (milli: string | bigint): Capacity => ({ milliCbm: milli.toString(), display: `${formatCbm(milli)} CBM` });
+// Display strings carry no unit, matching Amount; clients add "CBM" / "USDCx".
+export const capacity = (milli: string | bigint): Capacity => ({ milliCbm: milli.toString(), display: formatCbm(milli) });
 
 export function termsDto(t: CampaignTerms): TermsDto {
   const rate = BigInt(t.rateMicroUsdcPerMilliCbm);

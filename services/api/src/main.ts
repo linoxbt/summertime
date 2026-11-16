@@ -2,7 +2,7 @@ import Fastify, { type FastifyBaseLogger } from "fastify";
 import cookie from "@fastify/cookie";
 import { migrate } from "@summertime/platform";
 import { createContext } from "./context.ts";
-import { errorHandler } from "./errors.ts";
+import { ApiError, errorHandler } from "./errors.ts";
 import { commonRoutes } from "./routes/common.ts";
 import { forwarderRoutes } from "./routes/forwarder.ts";
 import { importerRoutes } from "./routes/importer.ts";
@@ -13,6 +13,14 @@ export async function buildApp() {
   const app = Fastify({ loggerInstance: ctx.log as unknown as FastifyBaseLogger, trustProxy: true, maxParamLength: 512 });
   await app.register(cookie);
   app.setErrorHandler(errorHandler);
+  // Every change needs an Idempotency-Key (spec section 20), checked before body validation.
+  app.addHook("onRequest", async (req) => {
+    if (req.method !== "POST" || req.url.startsWith("/auth/")) return;
+    const key = req.headers["idempotency-key"];
+    if (typeof key !== "string" || key.length < 8 || key.length > 128) {
+      throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "Send a unique Idempotency-Key header (8–128 characters) with every change.");
+    }
+  });
   commonRoutes(app, ctx);
   forwarderRoutes(app, ctx);
   importerRoutes(app, ctx);

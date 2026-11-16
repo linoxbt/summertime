@@ -172,6 +172,7 @@ export interface BonusEntitlement {
   campaignId: string;
   reservationId: string;
   commitmentCid: ContractId;
+  reservedMilliCbm: DInt;
   bonusMicroUsdc: DInt;
   instrumentId: InstrumentId;
   tokenDecimals: DInt;
@@ -185,6 +186,7 @@ export interface BonusPayout {
   importer: Party;
   campaignId: string;
   reservationId: string;
+  reservedMilliCbm: DInt;
   bonusMicroUsdc: DInt;
   instrumentId: InstrumentId;
   tokenDecimals: DInt;

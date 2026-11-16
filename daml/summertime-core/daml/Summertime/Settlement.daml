@@ -162,6 +162,7 @@ template BondTicket with
         require "bonus is not negative" (bonusMicroUsdc >= 0)
         create BonusEntitlement with
           operator; forwarder; importer; campaignId; reservationId; commitmentCid
+          reservedMilliCbm
           bonusMicroUsdc
           instrumentId = terms.instrumentId
           tokenDecimals = terms.tokenDecimals
@@ -181,6 +182,8 @@ template BonusEntitlement with
     campaignId : Text
     reservationId : Text
     commitmentCid : ContractId Commitment
+    reservedMilliCbm : Int
+      -- ^ The commitment's size, carried through to the bonus receipt.
     bonusMicroUsdc : Int
     instrumentId : InstrumentId
     tokenDecimals : Int
@@ -215,7 +218,7 @@ template BonusEntitlement with
         exercise commitmentCid Commitment_Close
         create BonusPayout with
           operator; forwarder; importer; campaignId; reservationId
-          bonusMicroUsdc; instrumentId; tokenDecimals
+          reservedMilliCbm; bonusMicroUsdc; instrumentId; tokenDecimals
 
     -- | Used by 'Commitment_Settle'.
     choice BonusEntitlement_Void : ()
@@ -239,6 +242,7 @@ template BonusPayout with
     importer : Party
     campaignId : Text
     reservationId : Text
+    reservedMilliCbm : Int
     bonusMicroUsdc : Int
     instrumentId : InstrumentId
     tokenDecimals : Int
@@ -276,7 +280,7 @@ template BonusPayout with
         receiptCid <- create Receipt with
           forwarder; importer; campaignId; reservationId
           kind = BonusPaid
-          reservedMilliCbm = 0
+          reservedMilliCbm
           amountMicroUsdc = bonusMicroUsdc
           note = "Failure bonus paid"
         pure (receiptCid, result)

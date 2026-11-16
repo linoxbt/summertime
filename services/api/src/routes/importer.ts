@@ -67,7 +67,13 @@ async function positions(ctx: AppContext, party: string): Promise<PositionDto[]>
     else if (kinds.has("Released")) stage = "released";
     else stage = "lapsed";
     const forwarder = commitment?.payload.forwarder ?? reservation?.payload.forwarder ?? request?.payload.forwarder ?? label?.forwarderParty ?? "";
-    const reserved = commitment?.payload.reservedMilliCbm ?? reservation?.payload.reservedMilliCbm ?? request?.payload.reservedMilliCbm ?? receipts[0]?.payload.reservedMilliCbm;
+    const sizedReceipt = receipts.find((r) => r.payload.reservedMilliCbm !== "0");
+    const reserved =
+      commitment?.payload.reservedMilliCbm ??
+      reservation?.payload.reservedMilliCbm ??
+      request?.payload.reservedMilliCbm ??
+      payout?.payload.reservedMilliCbm ??
+      sizedReceipt?.payload.reservedMilliCbm;
     out.push({
       campaignId: id,
       title: label?.title ?? id,
@@ -121,6 +127,24 @@ export function importerRoutes(app: FastifyInstance, ctx: AppContext) {
           expiresAt: i.payload.terms.lockTime,
         })),
     );
+    return { data };
+  });
+
+  app.get<{ Params: { cid: string } }>("/invitations/:cid", guard, async (req) => {
+    const user = me(req);
+    const L = await partyLedger(ctx, user.party);
+    const i = L.invitations.find((x) => x.contractId === req.params.cid);
+    if (!i) throw notFound("Invitation");
+    const label = (await campaignLabels(ctx, [i.payload.campaignId])).get(i.payload.campaignId);
+    const data: InvitationDto = {
+      contractId: i.contractId,
+      campaignId: i.payload.campaignId,
+      title: label?.title ?? "Shared container",
+      route: label?.route ?? null,
+      forwarder: await ctx.directory.ref(i.payload.forwarder),
+      terms: termsDto(i.payload.terms),
+      expiresAt: i.payload.terms.lockTime,
+    };
     return { data };
   });
 
