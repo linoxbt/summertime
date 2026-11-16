@@ -9,6 +9,7 @@ import { api, newIdempotencyKey } from "@/lib/api";
 import { useAction } from "@/lib/action";
 import { formatDateTime, relativeTime, shortParty, cbm } from "@/lib/format";
 import { AppShell } from "@/components/shell";
+import { ForwarderAftercare } from "@/components/aftercare";
 import { CampaignStatusBadge, ReservationStageBadge, bondStageLabel } from "@/components/status";
 import {
   Badge,
@@ -115,6 +116,8 @@ function CampaignDetail() {
           )}
         </Card>
       )}
+
+      {c.outcome?.result === "Succeeded" && <ForwarderAftercare campaign={c} onDone={refresh} />}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="min-w-0 space-y-4 lg:col-span-2">

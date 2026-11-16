@@ -39,6 +39,12 @@ export async function operatorPass(w: WorkerContext): Promise<void> {
   const now = w.now();
   const usedIds = new Set([...campaigns, ...bonds, ...outcomes].map((c) => c.payload.campaignId));
 
+  // While bond custody does not reconcile, accept no new campaigns (spec 28: pause new
+  // campaigns). Proposals wait; they are rejected only if their lock time passes.
+  const custody = await w.db.query<{ status: string }>("SELECT status FROM ops_checks WHERE name = 'bond_custody'");
+  const custodyAlert = custody.rows[0]?.status === "alert";
+  if (custodyAlert && proposals.length) w.log.warn({ waiting: proposals.length }, "bond custody alert open: holding new campaign proposals");
+
   // Proposals: accept once the bond has arrived; reject on duplicate IDs or a missed lock time.
   for (const p of proposals) {
     const id = p.payload.campaignId;
@@ -51,6 +57,7 @@ export async function operatorPass(w: WorkerContext): Promise<void> {
       await step(w, `reject ${id}`, () => reject(w, p.contractId, id, "no bond received before the lock time"));
       continue;
     }
+    if (custodyAlert) continue;
     if (received && received.amount === BigInt(p.payload.terms.bondMicroUsdc)) {
       const ok = await step(w, `accept ${id}`, () =>
         w.commands.run(

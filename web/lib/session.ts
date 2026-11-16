@@ -23,7 +23,7 @@ export function useSession() {
 export function homeFor(role: SessionUser["role"]): string {
   if (role === "forwarder") return "/forwarder";
   if (role === "importer") return "/importer";
-  return "/explorer";
+  return "/operations";
 }
 
 export function useSignOut() {

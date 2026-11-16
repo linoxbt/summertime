@@ -2,6 +2,7 @@
 module Summertime.Records where
 
 import DA.Optional (optionalToList)
+import DA.Text qualified as T
 
 import Summertime.Types
 
@@ -33,6 +34,118 @@ template Receipt with
   where
     signatory forwarder
     observer importer
+
+    -- | Confirm the physical booking for a settled importer (F-10). Tied to the Settled
+    -- receipt, so a booking always refers to a real settlement.
+    nonconsuming choice Receipt_ConfirmBooking : ContractId BookingConfirmation
+      with
+        bookingRef : Text
+        etd : Date
+        containerNo : Optional Text
+      controller forwarder
+      do
+        require "a booking follows a settlement" (kind == Settled)
+        require "booking reference is given" (bookingRef /= "")
+        create BookingConfirmation with
+          forwarder; importer; campaignId; reservationId; bookingRef; etd; containerNo
+          acknowledgedAt = None
+
+    -- | Open a dispute about a settled shipment (F-10). The evidence stays off-ledger; only
+    -- its SHA-256 hash is recorded, so the record proves what was submitted without
+    -- putting documents on the ledger.
+    nonconsuming choice Receipt_OpenDispute : ContractId DisputeRecord
+      with
+        subject : Text
+        evidenceHash : Text
+      controller importer
+      do
+        require "disputes concern settled shipments" (kind == Settled)
+        require "subject is given" (subject /= "")
+        require "evidence hash is a SHA-256 hex digest" (T.length evidenceHash == 64)
+        now <- getTime
+        create DisputeRecord with
+          importer; forwarder; campaignId; reservationId; subject; evidenceHash
+          openedAt = now
+
+-- | The forwarder's booking for one importer's space. Visible only to that importer.
+template BookingConfirmation with
+    forwarder : Party
+    importer : Party
+    campaignId : Text
+    reservationId : Text
+    bookingRef : Text
+    etd : Date
+    containerNo : Optional Text
+    acknowledgedAt : Optional Time
+  where
+    signatory forwarder
+    observer importer
+
+    -- | The importer confirms it has seen the booking. Recorded on the contract (the
+    -- specification listed this as non-consuming; recreating it keeps the acknowledgement
+    -- in the active contract set).
+    choice BookingConfirmation_Acknowledge : ContractId BookingConfirmation
+      controller importer
+      do
+        require "booking not yet acknowledged" (acknowledgedAt == None)
+        now <- getTime
+        create this with acknowledgedAt = Some now
+
+    -- | Amend ETD or container number (for example after a roll-over); clears the
+    -- acknowledgement so the importer confirms again.
+    choice BookingConfirmation_Amend : ContractId BookingConfirmation
+      with
+        newEtd : Date
+        newContainerNo : Optional Text
+      controller forwarder
+      do
+        create this with etd = newEtd; containerNo = newContainerNo; acknowledgedAt = None
+
+-- | An open dispute between one importer and its forwarder. Never visible to other importers.
+template DisputeRecord with
+    importer : Party
+    forwarder : Party
+    campaignId : Text
+    reservationId : Text
+    subject : Text
+    evidenceHash : Text
+    openedAt : Time
+  where
+    signatory importer
+    observer forwarder
+
+    -- | The forwarder records its resolution, which both parties then hold. Refunds after
+    -- success remain off-ledger in the MVP (F-10).
+    choice DisputeRecord_Resolve : ContractId DisputeResolution
+      with
+        resolution : Text
+      controller forwarder
+      do
+        require "resolution is given" (resolution /= "")
+        now <- getTime
+        create DisputeResolution with
+          importer; forwarder; campaignId; reservationId; subject; evidenceHash; openedAt
+          resolution
+          resolvedAt = now
+
+    -- | The importer withdraws its own dispute.
+    choice DisputeRecord_Withdraw : ()
+      controller importer
+      do pure ()
+
+-- | A resolved dispute, signed by both sides: the importer opened it, the forwarder resolved it.
+template DisputeResolution with
+    importer : Party
+    forwarder : Party
+    campaignId : Text
+    reservationId : Text
+    subject : Text
+    evidenceHash : Text
+    openedAt : Time
+    resolution : Text
+    resolvedAt : Time
+  where
+    signatory importer, forwarder
 
 -- | Aggregate progress for exactly one importer (privacy rule P-4).
 --

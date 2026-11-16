@@ -20,7 +20,10 @@ const NAV: Record<SessionUser["role"], { href: string; label: string }[]> = {
     { href: "/history", label: "History" },
     { href: "/explorer", label: "Privacy explorer" },
   ],
-  operator: [{ href: "/explorer", label: "Privacy explorer" }],
+  operator: [
+    { href: "/operations", label: "Operations" },
+    { href: "/explorer", label: "Privacy explorer" },
+  ],
 };
 
 /** Authenticated shell: requires a session, optionally a role. */

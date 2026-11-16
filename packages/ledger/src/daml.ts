@@ -228,6 +228,32 @@ export interface ProgressView {
   asOf: DTime;
 }
 
+export interface BookingConfirmation {
+  forwarder: Party;
+  importer: Party;
+  campaignId: string;
+  reservationId: string;
+  bookingRef: string;
+  etd: string; // Daml Date, YYYY-MM-DD
+  containerNo: string | null;
+  acknowledgedAt: DTime | null;
+}
+
+export interface DisputeRecord {
+  importer: Party;
+  forwarder: Party;
+  campaignId: string;
+  reservationId: string;
+  subject: string;
+  evidenceHash: string;
+  openedAt: DTime;
+}
+
+export interface DisputeResolution extends DisputeRecord {
+  resolution: string;
+  resolvedAt: DTime;
+}
+
 export interface HoldingView {
   owner: Party;
   instrumentId: InstrumentId;

@@ -1,0 +1,73 @@
+-- | Booking confirmations and disputes after settlement (specification F-10).
+module Summertime.Test.Aftercare where
+
+import DA.Assert ((===))
+import DA.Date (date, Month(..))
+import Daml.Script
+
+import Summertime.Campaign
+import Summertime.Records
+import Summertime.Settlement qualified
+import Summertime.Types
+import Summertime.Test.Setup
+
+hash64 : Text
+hash64 = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+
+settledReceipt : Party -> Script (ContractId Receipt)
+settledReceipt p = do
+  rs <- query @Receipt p
+  case [cid | (cid, r) <- rs, r.kind == Settled] of
+    [cid] -> pure cid
+    _ -> fail "expected exactly one Settled receipt"
+
+test_bookingAndDisputeAfterSettlement : Script ()
+test_bookingAndDisputeAfterSettlement = do
+  env <- setupEnv
+  (campaignCid, _, joined) <- campaignWith env "c-after" (fullContainer env)
+  _ <- submit env.forwarder $ exerciseCmd campaignCid Campaign_Execute with
+    included = settleLegsWithTickets joined
+  let a = importerAt env 0
+      b = importerAt env 1
+  receiptA <- settledReceipt a
+
+  -- Booking: issued by the forwarder against the settled receipt, seen only by that importer.
+  bookingA <- submit env.forwarder $ exerciseCmd receiptA Receipt_ConfirmBooking with
+    bookingRef = "HBF-GZ-LOS-0412"; etd = date 2026 Dec 12; containerNo = Some "MSCU 123456-7"
+  None <- queryContractId b bookingA
+  submitMustFail b $ exerciseCmd bookingA BookingConfirmation_Acknowledge
+  ackA <- submit a $ exerciseCmd bookingA BookingConfirmation_Acknowledge
+  Some acked <- queryContractId a ackA
+  assertMsg "acknowledged" (acked.acknowledgedAt /= None)
+  -- Amending clears the acknowledgement.
+  amended <- submit env.forwarder $ exerciseCmd ackA BookingConfirmation_Amend with
+    newEtd = date 2026 Dec 19; newContainerNo = Some "MSCU 123456-7"
+  Some am <- queryContractId a amended
+  am.acknowledgedAt === None
+  am.etd === date 2026 Dec 19
+
+  -- Only the receipt's importer can open a dispute, and only with a SHA-256 hash.
+  submitMustFail env.forwarder $ exerciseCmd receiptA Receipt_OpenDispute with subject = "x"; evidenceHash = hash64
+  submitMustFail a $ exerciseCmd receiptA Receipt_OpenDispute with subject = "Short shipment"; evidenceHash = "abc"
+  disputeA <- submit a $ exerciseCmd receiptA Receipt_OpenDispute with subject = "Short shipment"; evidenceHash = hash64
+  None <- queryContractId b disputeA
+  Some _ <- queryContractId env.forwarder disputeA
+  -- Only the forwarder resolves; the resolution is held by both.
+  submitMustFail a $ exerciseCmd disputeA DisputeRecord_Resolve with resolution = "self-resolved"
+  resolution <- submit env.forwarder $ exerciseCmd disputeA DisputeRecord_Resolve with resolution = "Two cartons re-shipped on the next sailing."
+  Some r <- queryContractId a resolution
+  r.subject === "Short shipment"
+  None <- queryContractId b resolution
+  pure ()
+
+test_bookingRequiresSettlement : Script ()
+test_bookingRequiresSettlement = do
+  env <- setupEnv
+  let a = importerAt env 0
+  (_, _, [j]) <- campaignWith env "c-nobook" [(a, 4000)]
+  _ <- submit a $ exerciseCmd j.commitmentCid Summertime.Settlement.Commitment_Withdraw with
+    ticketCid = j.ticketCid; extraArgs = noExtraArgs
+  [(withdrawn, _)] <- query @Receipt a
+  submitMustFail env.forwarder $ exerciseCmd withdrawn Receipt_ConfirmBooking with
+    bookingRef = "X"; etd = date 2026 Dec 12; containerNo = None
+  submitMustFail a $ exerciseCmd withdrawn Receipt_OpenDispute with subject = "x"; evidenceHash = hash64

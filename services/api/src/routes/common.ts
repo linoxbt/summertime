@@ -128,6 +128,9 @@ async function summarize(ctx: AppContext, p: Record<string, unknown>): Promise<R
   if (typeof p.result === "string") out.result = p.result as string;
   if (typeof p.locked === "boolean") out.bondLocked = String(p.locked);
   if (typeof p.amountMicroUsdc === "string") out.amount = `${formatUsdc(p.amountMicroUsdc)} USDCx`;
+  if (typeof p.bookingRef === "string") out.booking = `${p.bookingRef}, ETD ${p.etd}${p.containerNo ? `, ${p.containerNo}` : ""}`;
+  if (typeof p.subject === "string") out.dispute = p.subject as string;
+  if (typeof p.resolution === "string") out.resolution = p.resolution as string;
   if (terms?.thresholdMilliCbm && !out.reserved) out.threshold = `${formatCbm(terms.thresholdMilliCbm)} CBM`;
   if (terms?.bondMicroUsdc && "bondCid" in p) out.bond = `${formatUsdc(terms.bondMicroUsdc)} USDCx`;
   return out;

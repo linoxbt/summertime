@@ -22,6 +22,7 @@ export API_URL="${API_URL:-http://localhost:7580}"
 # Demo pacing: publish progress every 15 s instead of hourly.
 export PROGRESS_INTERVAL_SECONDS="${PROGRESS_INTERVAL_SECONDS:-15}"
 export DEMO_MODE="${DEMO_MODE:-true}"
+export OPS_INTERVAL_SECONDS="${OPS_INTERVAL_SECONDS:-15}"
 
 up() { curl -fsS -o /dev/null "$1" 2>/dev/null; }
 wait_for() {

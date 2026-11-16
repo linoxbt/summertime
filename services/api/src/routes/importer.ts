@@ -17,7 +17,7 @@ import type { AppContext } from "../context.ts";
 import { me, requireUser } from "../auth.ts";
 import { conflict, invalid, notFound } from "../errors.ts";
 import { idempotent } from "../idempotency.ts";
-import { amount, balance, campaignLabels, capacity, liveAllocations, partyLedger, receiptDto, selectHoldings, termsDto, type PartyLedger } from "../reads.ts";
+import { amount, balance, bookingDto, campaignLabels, capacity, disputeDtos, liveAllocations, partyLedger, receiptDto, selectHoldings, sha256, termsDto, type PartyLedger } from "../reads.ts";
 
 function progressDto(L: PartyLedger, campaignId: string, terms: { containerCapacityMilliCbm: string; thresholdMilliCbm: string }): ProgressDto | undefined {
   const p = L.progress.find((x) => x.payload.campaignId === campaignId);
@@ -49,6 +49,8 @@ async function positions(ctx: AppContext, party: string): Promise<PositionDto[]>
     const entitlement = L.entitlements.find((c) => c.payload.campaignId === id);
     const payout = L.payouts.find((c) => c.payload.campaignId === id);
     const receipts = L.receipts.filter((c) => c.payload.campaignId === id);
+    const settledReceipt = receipts.find((r) => r.payload.kind === "Settled");
+    const booking = L.bookings.find((b) => b.payload.campaignId === id);
     const terms = commitment?.payload.terms ?? reservation?.payload.terms ?? request?.payload.terms ?? label?.terms;
     if (!terms) continue;
     const phase = phaseOf(terms, now);
@@ -87,6 +89,8 @@ async function positions(ctx: AppContext, party: string): Promise<PositionDto[]>
       bonus: entitlement ? amount(entitlement.payload.bonusMicroUsdc) : payout ? amount(payout.payload.bonusMicroUsdc) : undefined,
       progress: progressDto(L, id, terms),
       receipts: await Promise.all(receipts.map((r) => receiptDto(ctx, r))),
+      booking: booking ? await bookingDto(ctx, booking) : undefined,
+      disputes: await disputeDtos(ctx, L, id, party),
       ids: {
         request: request?.contractId,
         reservation: reservation?.contractId,
@@ -95,12 +99,14 @@ async function positions(ctx: AppContext, party: string): Promise<PositionDto[]>
         entitlement: entitlement?.contractId,
         payout: payout?.contractId,
         allocation: commitment?.payload.allocationCid,
+        settledReceipt: settledReceipt?.contractId,
       },
       actions: {
         canCommit: stage === "awaiting-signature",
         canWithdraw: stage === "committed" && phase === "open" && !!ticket,
         canClaim: stage === "claimable",
         canRelease: !!commitment && phase !== "open" && phase !== "locked" && stage !== "claimable" && live.has(commitment.payload.allocationCid),
+        canDispute: !!settledReceipt && !L.disputes.some((d) => d.payload.campaignId === id),
       },
     });
   }
@@ -339,6 +345,81 @@ export function importerRoutes(app: FastifyInstance, ctx: AppContext) {
           disclosedContracts: context?.disclosedContracts ?? [],
         },
         c.payload.campaignId,
+      );
+      return { updateId: out.updateId };
+    });
+    return reply.code(res.status).send(res.body);
+  });
+
+  // ---- After settlement: bookings and disputes (F-10) -------------------------------------
+
+  app.post<{ Params: { cid: string } }>("/bookings/:cid/acknowledge", guard, async (req, reply) => {
+    const user = me(req);
+    const res = await idempotent(ctx, req, async (i) => {
+      const L = await partyLedger(ctx, user.party);
+      const b = L.bookings.find((x) => x.contractId === req.params.cid);
+      if (!b) throw notFound("Booking");
+      if (b.payload.acknowledgedAt) throw conflict("ALREADY_ACKNOWLEDGED", "You have already acknowledged this booking.");
+      const out = await ctx.commands.run(
+        "importer.acknowledge-booking",
+        {
+          commandId: i.commandId("ack-booking"),
+          actAs: [user.party],
+          userId: `u-${user.handle}`,
+          commands: [{ ExerciseCommand: { templateId: T.BookingConfirmation, contractId: b.contractId, choice: "BookingConfirmation_Acknowledge", choiceArgument: {} } }],
+        },
+        b.payload.campaignId,
+      );
+      return { updateId: out.updateId };
+    });
+    return reply.code(res.status).send(res.body);
+  });
+
+  /** Open a dispute about a settled shipment. Details stay off-ledger; the ledger gets their hash. */
+  app.post<{ Params: { cid: string } }>("/receipts/:cid/disputes", guard, async (req, reply) => {
+    const user = me(req);
+    const body = z.object({ subject: z.string().trim().min(3).max(140), details: z.string().trim().min(10).max(5000) }).parse(req.body);
+    const res = await idempotent(ctx, req, async (i) => {
+      const L = await partyLedger(ctx, user.party);
+      const r = L.receipts.find((x) => x.contractId === req.params.cid);
+      if (!r || r.payload.kind !== "Settled") throw conflict("NOT_SETTLED", "Disputes can be opened only about a settled shipment.");
+      // Salt with the receipt so identical texts in different disputes hash differently.
+      const evidence = `${body.details}\n\n— ${r.payload.campaignId}/${r.payload.reservationId}`;
+      const evidenceHash = sha256(evidence);
+      await ctx.db.query(
+        "INSERT INTO dispute_evidence (evidence_hash, importer_party, campaign_id, details) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+        [evidenceHash, user.party, r.payload.campaignId, evidence],
+      );
+      const out = await ctx.commands.run(
+        "importer.open-dispute",
+        {
+          commandId: i.commandId("open-dispute"),
+          actAs: [user.party],
+          userId: `u-${user.handle}`,
+          commands: [{ ExerciseCommand: { templateId: T.Receipt, contractId: r.contractId, choice: "Receipt_OpenDispute", choiceArgument: { subject: body.subject, evidenceHash } } }],
+        },
+        r.payload.campaignId,
+      );
+      return { disputeCid: out.result as string, evidenceHash, updateId: out.updateId };
+    });
+    return reply.code(res.status).send(res.body);
+  });
+
+  app.post<{ Params: { cid: string } }>("/disputes/:cid/withdraw", guard, async (req, reply) => {
+    const user = me(req);
+    const res = await idempotent(ctx, req, async (i) => {
+      const L = await partyLedger(ctx, user.party);
+      const d = L.disputes.find((x) => x.contractId === req.params.cid && x.payload.importer === user.party);
+      if (!d) throw notFound("Dispute");
+      const out = await ctx.commands.run(
+        "importer.withdraw-dispute",
+        {
+          commandId: i.commandId("withdraw-dispute"),
+          actAs: [user.party],
+          userId: `u-${user.handle}`,
+          commands: [{ ExerciseCommand: { templateId: T.DisputeRecord, contractId: d.contractId, choice: "DisputeRecord_Withdraw", choiceArgument: {} } }],
+        },
+        d.payload.campaignId,
       );
       return { updateId: out.updateId };
     });

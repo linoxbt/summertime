@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Amount, PositionDto, SettlementInfo, TransferLeg } from "@summertime/ledger";
 import { api } from "@/lib/api";
 import { useAction } from "@/lib/action";
+import { ImporterAftercare } from "@/components/aftercare";
 import { formatDateTime, relativeTime, shortId, shortParty, cbm } from "@/lib/format";
 import { AppShell } from "@/components/shell";
 import { PositionStageBadge } from "@/components/status";
@@ -128,9 +129,14 @@ function Position() {
             )}
           </Card>
 
-          <Card title="Container progress">
-            <ProgressPanel progress={pos.progress} />
-          </Card>
+          <ImporterAftercare pos={pos} onDone={refresh} />
+
+          {/* Progress readings are published while the container fills; after the outcome they are stale. */}
+          {["requested", "awaiting-signature", "committed"].includes(pos.stage) && (
+            <Card title="Container progress">
+              <ProgressPanel progress={pos.progress} />
+            </Card>
+          )}
 
           <Card title="Receipts">
             <ReceiptList receipts={pos.receipts} />

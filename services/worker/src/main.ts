@@ -10,6 +10,7 @@ import { CommandRunner, acquireLeaderLock, createDb, createLedger, createLogger,
 import { custodyPass } from "./custody.ts";
 import { forwarderPass } from "./forwarder.ts";
 import { operatorPass } from "./operator.ts";
+import { opsPass } from "./ops.ts";
 import type { WorkerContext } from "./shared.ts";
 
 const WORKER_ID = "summertime-worker";
@@ -40,14 +41,16 @@ async function storedOffset(): Promise<number> {
 
 async function storeOffset(offset: number): Promise<void> {
   await db.query(
-    `INSERT INTO ledger_offsets (worker_id, "offset", updated_at) VALUES ($1, $2, now())
-     ON CONFLICT (worker_id) DO UPDATE SET "offset" = EXCLUDED."offset", updated_at = now()`,
+    `INSERT INTO ledger_offsets (worker_id, "offset", updated_at, last_pass_at) VALUES ($1, $2, now(), now())
+     ON CONFLICT (worker_id) DO UPDATE SET "offset" = EXCLUDED."offset", updated_at = now(), last_pass_at = now()`,
     [WORKER_ID, offset],
   );
 }
 
 log.info({ ledger: config.ledgerUrl, registry: config.registryUrl, tick: config.workerTickSeconds }, "worker started");
 let lastFullPass = 0;
+let lastOpsPass = 0;
+const OPS_INTERVAL_MS = Number(process.env.OPS_INTERVAL_SECONDS ?? "60") * 1000;
 
 while (!stopping) {
   const started = Date.now();
@@ -74,6 +77,10 @@ while (!stopping) {
       await storeOffset(end);
       lastFullPass = Date.now();
       if (end !== from) log.debug({ from, end, ms: Date.now() - started }, "pass complete");
+    }
+    if (Date.now() - lastOpsPass >= OPS_INTERVAL_MS) {
+      await opsPass(w, (await pilotParties(db)).filter((p) => p.role === "forwarder"));
+      lastOpsPass = Date.now();
     }
   } catch (e) {
     log.error({ err: e instanceof Error ? e.message.slice(0, 500) : String(e) }, "pass failed; retrying");

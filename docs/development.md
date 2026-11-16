@@ -54,6 +54,7 @@ The sandbox is in-memory: restarting it clears the ledger, and the next bootstra
 | `npm run typecheck` | All TypeScript packages |
 | `npm run e2e:api` | Full success and failure campaigns through the API against the live stack (about 5 minutes; waits for real lock times and deadlines) |
 | `npm run e2e:guards` | Authentication, roles, idempotency replays, terms validation and each party's ledger view (about 30 seconds) |
+| `npm run e2e:ops` | Bond custody reconciliation: simulated operator misuse raises an alert, new campaigns are held, and both recover once custody reconciles (about 1 minute) |
 | `npm run e2e:ui` | The success journey in a browser: forwarder on desktop, six importers on phone-sized screens |
 
 ## Configuration
@@ -69,6 +70,7 @@ The sandbox is in-memory: restarting it clears the ledger, and the next bootstra
 | `DEMO_MODE` | `true` | Demo sign-in, faucet and privacy explorer. Must be `false` outside demos |
 | `PROGRESS_INTERVAL_SECONDS` | `3600` (`15` in `dev.sh`) | Progress publication schedule (F-6) |
 | `WORKER_TICK_SECONDS` | `2` | Worker pass interval |
+| `OPS_INTERVAL_SECONDS` | `60` (`15` in `dev.sh`) | Operational checks interval (spec 28) |
 
 ## Reliability properties
 

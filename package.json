@@ -22,6 +22,7 @@
     "e2e:api": "tsx tests/e2e/api.e2e.ts",
     "e2e:ui": "node tests/e2e/ui.e2e.mjs",
     "daml:test": "cd daml && dpm build --all && cd summertime-test && dpm test",
-    "e2e:guards": "tsx tests/e2e/api-guards.e2e.ts"
+    "e2e:guards": "tsx tests/e2e/api-guards.e2e.ts",
+    "e2e:ops": "tsx tests/e2e/ops.e2e.ts"
   }
 }

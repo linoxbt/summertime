@@ -19,6 +19,9 @@ export const T = {
   CampaignOutcome: core("Records", "CampaignOutcome"),
   Receipt: core("Records", "Receipt"),
   ProgressView: core("Records", "ProgressView"),
+  BookingConfirmation: core("Records", "BookingConfirmation"),
+  DisputeRecord: core("Records", "DisputeRecord"),
+  DisputeResolution: core("Records", "DisputeResolution"),
 } as const;
 
 export type TemplateName = keyof typeof T;

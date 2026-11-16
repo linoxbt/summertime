@@ -28,10 +28,16 @@ import {
   type ProgressView,
   type Receipt,
   type ReceiptDto,
+  type BookingConfirmation,
+  type BookingDto,
+  type DisputeDto,
+  type DisputeRecord,
+  type DisputeResolution,
   type ReservationRequest,
   type TermsDto,
   type TemplateName,
 } from "@summertime/ledger";
+import { createHash } from "node:crypto";
 import type { AppContext } from "./context.ts";
 
 export const amount = (micro: string | bigint): Amount => ({ micro: micro.toString(), display: formatUsdc(micro) });
@@ -78,6 +84,9 @@ export interface PartyLedger {
   outcomes: ActiveContract<CampaignOutcome>[];
   receipts: ActiveContract<Receipt>[];
   progress: ActiveContract<ProgressView>[];
+  bookings: ActiveContract<BookingConfirmation>[];
+  disputes: ActiveContract<DisputeRecord>[];
+  resolutions: ActiveContract<DisputeResolution>[];
 }
 
 /** One snapshot of everything Summertime-related that a party can see. */
@@ -98,7 +107,62 @@ export async function partyLedger(ctx: AppContext, party: string): Promise<Party
     outcomes: pick("CampaignOutcome"),
     receipts: pick("Receipt"),
     progress: pick("ProgressView"),
+    bookings: pick("BookingConfirmation"),
+    disputes: pick("DisputeRecord"),
+    resolutions: pick("DisputeResolution"),
   };
+}
+
+export async function bookingDto(ctx: AppContext, b: ActiveContract<BookingConfirmation>): Promise<BookingDto> {
+  const p = b.payload;
+  return {
+    contractId: b.contractId,
+    importer: await ctx.directory.ref(p.importer),
+    reservationId: p.reservationId,
+    bookingRef: p.bookingRef,
+    etd: p.etd,
+    containerNo: p.containerNo,
+    acknowledgedAt: p.acknowledgedAt,
+  };
+}
+
+/**
+ * Open and resolved disputes for a campaign from one party's view. Evidence text comes from
+ * the application database only for disputes this party can see on the ledger, and is
+ * checked against the hash the ledger holds.
+ */
+export async function disputeDtos(ctx: AppContext, L: PartyLedger, campaignId: string, importer?: string): Promise<DisputeDto[]> {
+  const mine = <T extends { campaignId: string; importer: string }>(c: ActiveContract<T>) =>
+    c.payload.campaignId === campaignId && (!importer || c.payload.importer === importer);
+  const records = [...L.disputes.filter(mine), ...L.resolutions.filter(mine)];
+  const hashes = records.map((r) => r.payload.evidenceHash);
+  const ev = hashes.length
+    ? await ctx.db.query<{ evidence_hash: string; details: string }>("SELECT evidence_hash, details FROM dispute_evidence WHERE evidence_hash = ANY($1)", [hashes])
+    : { rows: [] };
+  const details = new Map(ev.rows.map((r) => [r.evidence_hash, r.details]));
+  const out: DisputeDto[] = [];
+  for (const r of records) {
+    const p = r.payload as DisputeRecord & Partial<DisputeResolution>;
+    const text = details.get(p.evidenceHash) ?? null;
+    out.push({
+      contractId: r.contractId,
+      importer: await ctx.directory.ref(p.importer),
+      reservationId: p.reservationId,
+      subject: p.subject,
+      details: text,
+      evidenceHash: p.evidenceHash,
+      evidenceVerified: text !== null && sha256(text) === p.evidenceHash,
+      openedAt: p.openedAt,
+      status: p.resolution !== undefined ? "resolved" : "open",
+      resolution: p.resolution,
+      resolvedAt: p.resolvedAt,
+    });
+  }
+  return out.sort((a, b) => b.openedAt.localeCompare(a.openedAt));
+}
+
+export function sha256(text: string): string {
+  return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
 /** Allocation contract IDs that still exist in the party's view (executor or sender). */

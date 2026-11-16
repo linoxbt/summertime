@@ -34,6 +34,8 @@ import {
   selectHoldings,
   termsDto,
   updateIdFor,
+  bookingDto,
+  disputeDtos,
   type CampaignLabel,
   type PartyLedger,
 } from "../reads.ts";
@@ -290,6 +292,8 @@ export function forwarderRoutes(app: FastifyInstance, ctx: AppContext) {
     const detail: ForwarderCampaignDetail = {
       ...(await summary(ctx, s)),
       reservations: rows,
+      bookings: await Promise.all(L.bookings.filter((b) => b.payload.campaignId === s.id).map((b) => bookingDto(ctx, b))),
+      disputes: await disputeDtos(ctx, L, s.id),
       invitees,
       bond: { stage: bondStage, amount: amount(s.terms.bondMicroUsdc), transferUpdateId: bondSent },
       canExecute: blockers.length === 0,
@@ -482,6 +486,95 @@ export function forwarderRoutes(app: FastifyInstance, ctx: AppContext) {
           commands: [{ ExerciseCommand: { templateId: T.Campaign, contractId: s.campaign.contractId, choice: "Campaign_Cancel", choiceArgument: {} } }],
         },
         s.id,
+      );
+      return { updateId: out.updateId };
+    });
+    return reply.code(res.status).send(res.body);
+  });
+
+  // ---- After settlement: bookings and disputes (F-10) -------------------------------------
+
+  const BookingInput = z.object({
+    bookingRef: z.string().trim().min(2).max(64),
+    etd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "use YYYY-MM-DD"),
+    containerNo: z.string().trim().max(32).optional(),
+  });
+
+  /** Issue the booking to every settled importer that does not have one yet. */
+  app.post<{ Params: { id: string } }>("/campaigns/:id/bookings", guard, async (req, reply) => {
+    const user = me(req);
+    const body = BookingInput.parse(req.body);
+    const res = await idempotent(ctx, req, async (i) => {
+      const { L, s } = await ownedCampaign(ctx, user.party, req.params.id);
+      const settled = L.receipts.filter((r) => r.payload.campaignId === s.id && r.payload.kind === "Settled");
+      if (settled.length === 0) throw conflict("NOT_SETTLED", "Bookings can be issued once the campaign has settled.");
+      const booked = new Set(L.bookings.filter((b) => b.payload.campaignId === s.id).map((b) => b.payload.reservationId));
+      let issued = 0;
+      for (const r of settled.filter((x) => !booked.has(x.payload.reservationId))) {
+        await ctx.commands.run(
+          "forwarder.booking",
+          {
+            commandId: i.commandId(`booking-${r.contractId.slice(0, 16)}`),
+            actAs: [user.party],
+            userId: `u-${user.handle}`,
+            commands: [
+              {
+                ExerciseCommand: {
+                  templateId: T.Receipt,
+                  contractId: r.contractId,
+                  choice: "Receipt_ConfirmBooking",
+                  choiceArgument: { bookingRef: body.bookingRef, etd: body.etd, containerNo: body.containerNo || null },
+                },
+              },
+            ],
+          },
+          s.id,
+        );
+        issued++;
+      }
+      return { issued };
+    });
+    return reply.code(res.status).send(res.body);
+  });
+
+  app.post<{ Params: { cid: string } }>("/bookings/:cid/amend", guard, async (req, reply) => {
+    const user = me(req);
+    const body = BookingInput.pick({ etd: true, containerNo: true }).parse(req.body);
+    const res = await idempotent(ctx, req, async (i) => {
+      const L = await partyLedger(ctx, user.party);
+      const b = L.bookings.find((x) => x.contractId === req.params.cid && x.payload.forwarder === user.party);
+      if (!b) throw notFound("Booking");
+      const out = await ctx.commands.run(
+        "forwarder.amend-booking",
+        {
+          commandId: i.commandId("amend-booking"),
+          actAs: [user.party],
+          userId: `u-${user.handle}`,
+          commands: [{ ExerciseCommand: { templateId: T.BookingConfirmation, contractId: b.contractId, choice: "BookingConfirmation_Amend", choiceArgument: { newEtd: body.etd, newContainerNo: body.containerNo || null } } }],
+        },
+        b.payload.campaignId,
+      );
+      return { updateId: out.updateId };
+    });
+    return reply.code(res.status).send(res.body);
+  });
+
+  app.post<{ Params: { cid: string } }>("/disputes/:cid/resolve", guard, async (req, reply) => {
+    const user = me(req);
+    const { resolution } = z.object({ resolution: z.string().trim().min(3).max(2000) }).parse(req.body);
+    const res = await idempotent(ctx, req, async (i) => {
+      const L = await partyLedger(ctx, user.party);
+      const d = L.disputes.find((x) => x.contractId === req.params.cid && x.payload.forwarder === user.party);
+      if (!d) throw notFound("Dispute");
+      const out = await ctx.commands.run(
+        "forwarder.resolve-dispute",
+        {
+          commandId: i.commandId("resolve-dispute"),
+          actAs: [user.party],
+          userId: `u-${user.handle}`,
+          commands: [{ ExerciseCommand: { templateId: T.DisputeRecord, contractId: d.contractId, choice: "DisputeRecord_Resolve", choiceArgument: { resolution } } }],
+        },
+        d.payload.campaignId,
       );
       return { updateId: out.updateId };
     });

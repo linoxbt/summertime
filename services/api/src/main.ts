@@ -6,6 +6,7 @@ import { ApiError, errorHandler } from "./errors.ts";
 import { commonRoutes } from "./routes/common.ts";
 import { forwarderRoutes } from "./routes/forwarder.ts";
 import { importerRoutes } from "./routes/importer.ts";
+import { opsRoutes } from "./routes/ops.ts";
 
 export async function buildApp() {
   const ctx = createContext();
@@ -24,6 +25,7 @@ export async function buildApp() {
   commonRoutes(app, ctx);
   forwarderRoutes(app, ctx);
   importerRoutes(app, ctx);
+  opsRoutes(app, ctx);
   app.addHook("onClose", async () => {
     await ctx.db.end();
   });

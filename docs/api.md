@@ -33,6 +33,11 @@ Base URL: `http://localhost:7580` in development. The web app proxies `/api/*` t
 | `POST /campaigns/:id/fail` | — | `{ updateId }` | `NOT_EXPIRED`, `ALREADY_FINAL` |
 | `POST /campaigns/:id/cancel` | — | `{ updateId }` | `CAPACITY_HELD`, `ALREADY_FINAL` |
 | `GET /campaigns/:id/export.csv` | — | CSV of reservations | |
+| `POST /campaigns/:id/bookings` | `{ bookingRef, etd: "YYYY-MM-DD", containerNo? }` | `{ issued }`: one `BookingConfirmation` per settled importer without one | `NOT_SETTLED` |
+| `POST /bookings/:cid/amend` | `{ etd, containerNo? }` | `{ updateId }`; clears the importer's acknowledgement | `NOT_FOUND` |
+| `POST /disputes/:cid/resolve` | `{ resolution }` | `{ updateId }`; creates a `DisputeResolution` both parties hold | `NOT_FOUND` |
+
+`ForwarderCampaignDetail` includes `bookings: BookingDto[]` and `disputes: DisputeDto[]` (open and resolved).
 
 Campaign `status`: `proposed` (awaiting bond or operator acceptance) → `open` → `locked` (after lock time) → `expired` (after deadline) or a final `succeeded` / `failed` / `cancelled`. `bond.stage`: `awaiting-transfer` → `transfer-sent` → `escrowed` → `locked` → `settled`.
 
@@ -52,6 +57,11 @@ Campaign `status`: `proposed` (awaiting bond or operator acceptance) → `open` 
 | `POST /commitments/:cid/release` | — | `{ updateId }` | `NOT_EXPIRED` |
 | `POST /entitlements/:cid/claim` | — | `{ updateId }` | `NOT_CLAIMABLE`, `ALREADY_CLAIMED`, `WINDOW_CLOSED`, `ALLOCATION_WITHDRAWN` |
 | `GET /campaigns/:id/progress` | — | `ProgressDto` | `NOT_FOUND` |
+| `POST /bookings/:cid/acknowledge` | — | `{ updateId }` | `ALREADY_ACKNOWLEDGED` |
+| `POST /receipts/:cid/disputes` | `{ subject, details }` | `{ disputeCid, evidenceHash }` | `NOT_SETTLED` |
+| `POST /disputes/:cid/withdraw` | — | `{ updateId }` | `NOT_FOUND` |
+
+`PositionDto` includes `booking?: BookingDto`, `disputes: DisputeDto[]`, `ids.settledReceipt` and `actions.canDispute`. Dispute details stay in the application database; the ledger records their SHA-256 hash, and `DisputeDto.evidenceVerified` says whether the stored text still matches it.
 
 `PositionDto.stage`: `requested` (awaiting countersignature) → `awaiting-signature` (reservation countersigned; importer must sign the allocation) → `committed` → `settled`; or `withdrawn`; after a failed or excluded campaign `claimable` → `bonus-pending` → `bonus-paid`; `released`, `lapsed`. `PositionDto.actions` says which buttons to show.
 
@@ -72,6 +82,15 @@ In pilot mode, `POST /reservations/:cid/commit` allocates the importer's USDCx t
 | `GET /explorer/:campaignId?as=<handle>` | `ExplorerPane`: active contracts for that campaign visible to that party, read from its own ledger view |
 
 Returns `403 DISABLED` outside demo mode.
+
+## Operations
+
+| Method and path | Caller | Returns |
+| --- | --- | --- |
+| `GET /readyz` | Anyone | `{ ready, database, ledger }`; HTTP 503 when not ready |
+| `GET /ops/status` | Operator | Overall status, worker liveness and lag, every operational check (bond custody, overdue locks, unpaid payouts, settle reminders, failed settlements, registry latency, outcomes recorded), recent alerts, command counts |
+
+The worker runs the checks once a minute and records alert episodes; worker liveness is judged by the API (a stopped worker cannot report itself; stale after 5 minutes).
 
 ## Development only
 

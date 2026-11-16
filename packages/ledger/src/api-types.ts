@@ -83,8 +83,36 @@ export interface BondStatus {
   transferUpdateId?: string;
 }
 
+export interface BookingDto {
+  contractId: string;
+  importer: PartyRef;
+  reservationId: string;
+  bookingRef: string;
+  etd: string;
+  containerNo: string | null;
+  acknowledgedAt: string | null;
+}
+
+export interface DisputeDto {
+  contractId: string;
+  importer: PartyRef;
+  reservationId: string;
+  subject: string;
+  /** Off-ledger evidence text; its SHA-256 hash is what the ledger records. */
+  details: string | null;
+  evidenceHash: string;
+  /** True if the off-ledger details still match the hash on the ledger. */
+  evidenceVerified: boolean;
+  openedAt: string;
+  status: "open" | "resolved";
+  resolution?: string;
+  resolvedAt?: string;
+}
+
 export interface ForwarderCampaignDetail extends ForwarderCampaignSummary {
   reservations: ReservationRow[];
+  bookings: BookingDto[];
+  disputes: DisputeDto[];
   invitees: (PartyRef & { invitedAt: string; stage: ReservationStage | "invited" | "declined" })[];
   bond: BondStatus;
   canExecute: boolean;
@@ -147,6 +175,8 @@ export interface PositionDto {
   bonus?: Amount;
   progress?: ProgressDto;
   receipts: ReceiptDto[];
+  booking?: BookingDto;
+  disputes: DisputeDto[];
   ids: {
     request?: string;
     reservation?: string;
@@ -155,8 +185,9 @@ export interface PositionDto {
     entitlement?: string;
     payout?: string;
     allocation?: string;
+    settledReceipt?: string;
   };
-  actions: { canCommit: boolean; canWithdraw: boolean; canClaim: boolean; canRelease: boolean };
+  actions: { canCommit: boolean; canWithdraw: boolean; canClaim: boolean; canRelease: boolean; canDispute: boolean };
 }
 
 export interface BalanceDto {
@@ -192,3 +223,13 @@ export interface ApiErrorBody {
 }
 
 export type ApiResponse<T> = { data: T } | ApiErrorBody;
+
+/** Operational status for the operator (GET /ops/status, spec 28). */
+export interface OpsStatus {
+  overall: "ok" | "warn" | "alert";
+  checkedAt: string;
+  worker: { lastPassAt: string | null; secondsSincePass: number | null; offset: number | null; ledgerEnd: number | null; status: "ok" | "alert" };
+  checks: { name: string; status: "ok" | "warn" | "alert"; summary: string; checkedAt: string; detail: unknown }[];
+  alerts: { id: string; name: string; severity: "warn" | "alert"; summary: string; raisedAt: string; resolvedAt: string | null }[];
+  commands: { last24h: number; failed24h: number };
+}

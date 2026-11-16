@@ -33,7 +33,7 @@ async function signIn(browser, name, opts = {}) {
   page.on("pageerror", (e) => errors.push(`${name}: ${e.message}`));
   await page.goto(`${WEB}/login`);
   await page.getByRole("button", { name: new RegExp(name) }).click();
-  await page.waitForURL(/\/(forwarder|importer|explorer)/);
+  await page.waitForURL(/\/(forwarder|importer|explorer|operations)/);
   return page;
 }
 
@@ -113,6 +113,46 @@ try {
   for (const other of importers.slice(1).map(([n]) => n)) if (text.includes(other)) throw new Error(`Ada can see ${other}`);
   await ada.screenshot({ path: `${SHOTS}importer-settled.png`, fullPage: true });
   log("Ada sees her settled position and no other importer");
+
+  // ---- After settlement: booking, acknowledgement, dispute, resolution (F-10) ----------------
+  await fwd.goto(campaignUrl);
+  await fwd.getByLabel("Booking reference").fill("HBF-GZ-LOS-0412");
+  await fwd.getByLabel("Estimated departure (ETD)").fill("2026-12-12");
+  await fwd.getByLabel("Container number").fill("MSCU 123456-7");
+  await fwd.getByRole("button", { name: "Issue booking confirmation" }).click();
+  await confirmSheet(fwd, "Issue confirmation");
+  await fwd.getByText("Every settled importer has a booking confirmation.").waitFor({ timeout: 30_000 });
+  log("forwarder issued booking confirmations to all six importers");
+
+  await ada.reload();
+  await ada.getByText("HBF-GZ-LOS-0412").waitFor({ timeout: 30_000 });
+  await ada.getByRole("button", { name: "Acknowledge booking" }).click();
+  await confirmSheet(ada, "Acknowledge");
+  await ada.getByText(/You acknowledged this booking/).waitFor({ timeout: 30_000 });
+  await ada.getByRole("button", { name: "Report a problem" }).click();
+  await ada.getByLabel("What went wrong?").fill("Two cartons missing at Apapa");
+  await ada.getByLabel("Details").fill("Delivery note lists 48 cartons; we received 46. Photos sent to the forwarder by email.");
+  await ada.getByRole("button", { name: "Open dispute" }).click();
+  await confirmSheet(ada, "Open dispute");
+  await ada.getByText("Two cartons missing at Apapa").waitFor({ timeout: 30_000 });
+  await ada.screenshot({ path: `${SHOTS}importer-aftercare.png`, fullPage: true });
+  log("Ada acknowledged the booking and opened a dispute");
+
+  await fwd.reload();
+  await fwd.getByText("Two cartons missing at Apapa").waitFor({ timeout: 30_000 });
+  await fwd.getByLabel("Resolution").fill("Two cartons located in Ningbo; re-shipped on the next sailing at no cost.");
+  await fwd.getByRole("button", { name: "Record resolution" }).click();
+  await confirmSheet(fwd, "Record resolution");
+  await fwd.getByText(/re-shipped on the next sailing/).first().waitFor({ timeout: 30_000 });
+  await fwd.screenshot({ path: `${SHOTS}forwarder-aftercare.png`, fullPage: true });
+  log("forwarder resolved the dispute");
+
+  const bola = await signIn(browser, "Bola Textiles", { ...devices["Pixel 7"], deviceScaleFactor: 1 });
+  await bola.getByRole("link", { name: /UI test: Guangzhou to Lagos/ }).first().click();
+  await bola.getByText("HBF-GZ-LOS-0412").waitFor({ timeout: 30_000 });
+  const bolaText = await bola.locator("body").innerText();
+  if (/cartons missing|Ada/i.test(bolaText)) throw new Error("Bola can see Ada's dispute");
+  log("Bola sees his own booking and nothing of Ada's dispute");
 
   // ---- Privacy explorer ----------------------------------------------------------------------
   const op = await signIn(browser, "Summertime \\(operator\\)", { viewport: { width: 1440, height: 1000 } });
