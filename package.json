@@ -1,0 +1,26 @@
+{
+  "name": "summertime",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Summertime: private, all-or-nothing settlement for shared shipping containers on Canton.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev": "scripts/dev.sh",
+    "dev:stop": "scripts/dev.sh stop",
+    "bootstrap": "npm run bootstrap -w @summertime/api",
+    "e2e:api": "tsx tests/e2e/api.e2e.ts",
+    "e2e:ui": "node tests/e2e/ui.e2e.mjs",
+    "daml:test": "cd daml && dpm build --all && cd summertime-test && dpm test"
+  }
+}

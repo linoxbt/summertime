@@ -1,0 +1,20 @@
+{
+  "name": "@summertime/platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
+  },
+  "dependencies": {
+    "@summertime/ledger": "*",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0"
+  }
+}

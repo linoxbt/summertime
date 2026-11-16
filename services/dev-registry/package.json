@@ -1,0 +1,17 @@
+{
+  "name": "@summertime/dev-registry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "dev": "tsx watch src/main.ts",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "fastify": "^5.12.8",
+    "@summertime/ledger": "*",
+    "@summertime/platform": "*"
+  }
+}
