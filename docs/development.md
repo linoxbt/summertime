@@ -53,7 +53,8 @@ The sandbox is in-memory: restarting it clears the ledger, and the next bootstra
 | `npm test` | Unit tests (amount arithmetic mirrors the Daml bonus split) |
 | `npm run typecheck` | All TypeScript packages |
 | `npm run e2e:api` | Full success and failure campaigns through the API against the live stack (about 5 minutes; waits for real lock times and deadlines) |
-| `npm run e2e:ui` | The same journey through the browser |
+| `npm run e2e:guards` | Authentication, roles, idempotency replays, terms validation and each party's ledger view (about 30 seconds) |
+| `npm run e2e:ui` | The success journey in a browser: forwarder on desktop, six importers on phone-sized screens |
 
 ## Configuration
 
