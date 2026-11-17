@@ -16,6 +16,8 @@ const PAGES = [
   { href: "/questions", label: "Questions" },
   { href: "/privacy", label: "Trust model" },
   { href: "/login", label: "Sign in" },
+  { href: "/signup", label: "Create account" },
+  { href: "/demo", label: "Demo" },
 ];
 
 export function PublicHeader() {
@@ -28,8 +30,11 @@ export function PublicHeader() {
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
             <DemoStatus />
+            <Link href="/demo" className="hidden min-h-10 items-center rounded-full px-4 text-sm font-medium text-muted hover:bg-panel hover:text-fg md:inline-flex">
+              Demo
+            </Link>
             <Link href="/login" className="hidden min-h-10 items-center gap-2 rounded-full bg-fg px-5 text-sm font-medium text-page shadow-soft hover:bg-accent-strong hover:shadow-lift sm:inline-flex">
-              Try the demo <span aria-hidden="true">→</span>
+              Sign in <span aria-hidden="true">→</span>
             </Link>
             <Menu items={PAGES} />
           </div>
@@ -47,7 +52,7 @@ export function PublicFooter() {
           <Logo inverted />
           <p className="mt-4 max-w-xs text-sm">Shared containers. One settlement. Built on Canton with USDCx.</p>
         </div>
-        <FooterCol title="Product" links={[["/how-it-works", "How it works"], ["/the-box", "The box"], ["/sailings", "Sailings"], ["/login", "Sign in"]]} />
+        <FooterCol title="Product" links={[["/how-it-works", "How it works"], ["/the-box", "The box"], ["/sailings", "Sailings"], ["/signup", "Create account"], ["/demo", "Demo"]]} />
         <FooterCol title="Project" links={[["https://github.com/linoxbt/summertime", "Source"], ["https://www.canton.network", "Canton Network"], ["/questions", "Questions"], ["/privacy", "Trust model"]]} last />
       </div>
       <div className="border-t border-[#2c2b28]">

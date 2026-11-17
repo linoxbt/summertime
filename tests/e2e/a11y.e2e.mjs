@@ -39,6 +39,10 @@ const pages = [
   { who: null, path: "/questions" },
   { who: null, path: "/privacy" },
   { who: null, path: "/login" },
+  { who: null, path: "/signup" },
+  { who: null, path: "/forgot-password" },
+  { who: null, path: "/demo" },
+  { who: "Ada Phone Accessories", path: "/account" },
   { who: "Harbor Bridge Freight", path: "/forwarder" },
   { who: "Harbor Bridge Freight", path: "/forwarder/new" },
   settled && { who: "Harbor Bridge Freight", path: `/forwarder/campaigns/${encodeURIComponent(settled.campaignId)}` },
@@ -62,7 +66,7 @@ try {
         const ctx = await browser.newContext({ viewport: vp.viewport });
         if (p.who) {
           const page = await ctx.newPage();
-          await page.goto(`${WEB}/login`);
+          await page.goto(`${WEB}/demo`);
           await page.getByRole("button", { name: new RegExp(p.who) }).click();
           await page.waitForURL(/\/(forwarder|importer|explorer|operations)/);
           await page.close();

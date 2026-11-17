@@ -3,6 +3,7 @@ import cookie from "@fastify/cookie";
 import { migrate } from "@summertime/platform";
 import { createContext } from "./context.ts";
 import { ApiError, errorHandler } from "./errors.ts";
+import { authRoutes } from "./routes/auth.ts";
 import { commonRoutes } from "./routes/common.ts";
 import { forwarderRoutes } from "./routes/forwarder.ts";
 import { importerRoutes } from "./routes/importer.ts";
@@ -22,6 +23,7 @@ export async function buildApp() {
       throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "Send a unique Idempotency-Key header (8–128 characters) with every change.");
     }
   });
+  authRoutes(app, ctx);
   commonRoutes(app, ctx);
   forwarderRoutes(app, ctx);
   importerRoutes(app, ctx);

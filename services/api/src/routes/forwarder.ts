@@ -346,9 +346,11 @@ export function forwarderRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.code(res.status).send(res.body);
   });
 
-  app.get("/importers", guard, async () => {
+  // Demo forwarders see demo importers; real forwarders see real importers.
+  app.get("/importers", guard, async (req) => {
     const r = await ctx.db.query<{ party_id: string; display_name: string; handle: string }>(
-      "SELECT p.party_id, u.display_name, u.handle FROM users u JOIN party_links p ON p.user_id = u.id WHERE u.role = 'importer' ORDER BY u.display_name",
+      "SELECT p.party_id, u.display_name, u.handle FROM users u JOIN party_links p ON p.user_id = u.id WHERE u.role = 'importer' AND u.kind = $1 ORDER BY u.display_name",
+      [me(req).kind],
     );
     return { data: r.rows.map((x) => ({ party: x.party_id, displayName: x.display_name, handle: x.handle })) };
   });
@@ -364,6 +366,11 @@ export function forwarderRoutes(app: FastifyInstance, ctx: AppContext) {
         const p = h.includes("::") ? h : (await ctx.directory.byHandle(h))?.party;
         if (!p) throw invalid("UNKNOWN_IMPORTER", `Unknown importer: ${h}`);
         if (p === user.party) throw invalid("UNKNOWN_IMPORTER", "You cannot invite yourself.");
+        const target = await ctx.db.query(
+          "SELECT 1 FROM users u JOIN party_links l ON l.user_id = u.id WHERE l.party_id = $1 AND u.role = 'importer' AND u.kind = $2",
+          [p, user.kind],
+        );
+        if (!target.rowCount) throw invalid("UNKNOWN_IMPORTER", `Unknown importer: ${h}`);
         parties.push(p);
       }
       const already = new Set(

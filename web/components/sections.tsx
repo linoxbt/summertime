@@ -170,19 +170,19 @@ export function ClosingSection() {
     <section className="hatch border-b border-line px-4 py-16 text-center sm:py-24">
       <div className="mx-auto max-w-xl rounded-3xl border border-line bg-page px-4 py-10 shadow-lift sm:px-10">
         <h2 className="display text-5xl text-fg sm:text-6xl">Book space on the next box.</h2>
-        <p className="mt-3 text-sm text-muted">Test USDCx. Real contracts. No sign-up.</p>
+        <p className="mt-3 text-sm text-muted">Create an account in a minute, or look around the demo first.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Link
-            href="/login"
+            href="/signup"
             className="inline-flex min-h-11 items-center gap-2 rounded-full bg-fg px-6 text-sm font-medium text-page shadow-soft hover:bg-accent-strong hover:shadow-lift"
           >
-            Try the demo <span aria-hidden="true">→</span>
+            Create an account <span aria-hidden="true">→</span>
           </Link>
           <Link
-            href="/privacy"
+            href="/demo"
             className="inline-flex min-h-11 items-center rounded-full border border-line-strong bg-panel px-6 text-sm font-medium text-fg hover:border-fg hover:bg-white"
           >
-            Trust model
+            Try the demo
           </Link>
         </div>
       </div>

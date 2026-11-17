@@ -12,14 +12,24 @@ Base URL: `http://localhost:7580` in development. The web app proxies `/api/*` t
 
 ## Authentication
 
+Real accounts (`kind: "member"`) use email and password. Demo accounts (`kind: "demo"`) are seeded,
+have no password, and are entered only through the demo endpoints (demo mode only). Demo and real
+accounts never mix: importer lists, invitations and the privacy explorer stay within one kind.
+
 | Method and path | Body | Returns |
 | --- | --- | --- |
-| `POST /auth/code/start` | `{ email }` | `{ sent, expiresInSeconds, demoCode? }`. 6-digit code, 10 min, 5 attempts; a new code cancels older ones; at most 5 codes per 10 min. No email provider yet, so codes are only issued in demo mode, where `demoCode` is returned. Errors: `NO_ACCOUNT`, `TOO_MANY_CODES`, `CODE_DELIVERY_UNAVAILABLE` |
-| `POST /auth/code/verify` | `{ email, code }` | `SessionUser`; sets cookie. Errors: `INVALID_CODE`, `CODE_EXPIRED`, `TOO_MANY_ATTEMPTS` |
-| `GET /auth/demo-accounts` | — | `{ handle, displayName, role, email }[]` (demo mode) |
-| `POST /auth/demo-login` | `{ handle }` | `SessionUser`; sets cookie (demo mode) |
+| `POST /auth/signup` | `{ email, password, displayName, role: "importer" \| "forwarder" }` | 201 `SessionUser`; sets cookie. Creates a ledger party and user of its own. Errors: `WEAK_PASSWORD` (under 10 characters, equal to the email, one repeated character), `EMAIL_TAKEN` |
+| `POST /auth/login` | `{ email, password }` | `SessionUser`; sets a fresh session cookie. `INVALID_CREDENTIALS` for any wrong combination (same answer and timing whether or not the email exists); `TOO_MANY_ATTEMPTS` after 8 failures for an email (or 200 from one address) in 15 minutes |
+| `POST /auth/password/forgot` | `{ email }` | `{ sent: true }` whether or not the account exists; emails a 6-digit code (15 min, 5 attempts, 3 per 15 min). `EMAIL_UNAVAILABLE` in production without an email provider |
+| `POST /auth/password/reset` | `{ email, code, password }` | `SessionUser`; sets cookie; signs out every other session. Errors: `INVALID_CODE`, `CODE_EXPIRED`, `TOO_MANY_ATTEMPTS`, `WEAK_PASSWORD` |
+| `POST /auth/password/change` | `{ currentPassword, newPassword }` | `{ ok: true }`; signs out every other session. `WRONG_PASSWORD`, `WEAK_PASSWORD`; demo accounts get 403 |
 | `POST /auth/logout` | — | `{ ok: true }` |
-| `GET /auth/me` | — | `SessionUser` or 401 |
+| `GET /auth/me` | — | `SessionUser` (`kind`, `email` included) or 401 |
+| `GET /auth/demo-accounts` | — | demo accounts only `{ handle, displayName, role, email }[]` (demo mode) |
+| `POST /auth/demo-login` | `{ handle }` | `SessionUser`; demo accounts only (demo mode) |
+
+Passwords are hashed with scrypt (N=32768, r=8, p=1, 16-byte salt). Passwords and codes are never
+logged or returned.
 
 ## Forwarder
 

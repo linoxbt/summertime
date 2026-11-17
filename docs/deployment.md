@@ -33,6 +33,8 @@ the application database to match. **Every restart or redeploy resets the demo.*
 | `PROGRESS_INTERVAL_SECONDS`, `OPS_INTERVAL_SECONDS` | `15` |
 | `NODE_ENV` | `production` (secure cookies) |
 | `JAVA_OPTS` | `-Xms512m -Xmx2g` |
+| `RESEND_API_KEY`, `EMAIL_FROM` | optional: email provider for password-reset codes. Without it, production refuses reset (`EMAIL_UNAVAILABLE`); development writes mail to the `mail_outbox` table |
+| `OPERATOR_EMAIL`, `OPERATOR_PASSWORD` | optional: the Summertime operator signs in for real with these, and leaves the demo. Without them the operator is a demo account |
 
 Service settings: Dockerfile `deploy/backend/Dockerfile`, restart on failure, watch paths
 `daml/**`, `packages/**`, `services/**`, `deploy/backend/**`, `package*.json`. Needs about

@@ -5,6 +5,7 @@
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import pg from "pg";
 import type { ExplorerPane, ForwarderCampaignDetail, PositionDto } from "@summertime/ledger";
 
 const API = process.env.API_URL ?? "http://localhost:7580";
@@ -13,6 +14,16 @@ async function login(handle: string): Promise<string> {
   const res = await fetch(`${API}/auth/demo-login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handle }) });
   assert.equal(res.status, 200);
   return (res.headers.get("set-cookie") ?? "").split(";")[0]!;
+}
+
+const db = new pg.Pool({ connectionString: process.env.DATABASE_URL ?? "postgres://summertime:summertime@127.0.0.1:5432/summertime" });
+let memberImporter = "";
+
+/** POST to an auth endpoint; returns the session cookie it set, if any. */
+async function auth(path: string, body: unknown) {
+  const res = await fetch(`${API}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const json = (await res.json()) as { data?: any; error?: { code: string } };
+  return { status: res.status, data: json.data, code: json.error?.code, cookie: (res.headers.get("set-cookie") ?? "").split(";")[0]! };
 }
 
 async function call(cookie: string | undefined, method: "GET" | "POST", path: string, body?: unknown, key: string | null = randomUUID()) {
@@ -46,53 +57,66 @@ async function main() {
   const bola = await login("bola");
   const op = await login("operator");
 
-  // Email one-time codes.
-  const started = await call(undefined, "POST", "/auth/code/start", { email: "Ada@Summertime.demo" });
-  assert.equal(started.status, 200);
-  const demoCode = started.data.demoCode as string;
-  assert.match(demoCode, /^\d{6}$/);
-  const wrong = demoCode === "000000" ? "111111" : "000000";
-  assert.equal((await call(undefined, "POST", "/auth/code/verify", { email: "ada@summertime.demo", code: wrong })).code, "INVALID_CODE");
-  const verifyRes = await fetch(`${API}/auth/code/verify`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: "ada@summertime.demo", code: demoCode }),
-  });
-  assert.equal(verifyRes.status, 200);
-  const codeCookie = (verifyRes.headers.get("set-cookie") ?? "").split(";")[0]!;
-  assert.equal((await call(codeCookie, "GET", "/auth/me")).data.handle, "ada");
-  assert.equal((await call(undefined, "POST", "/auth/code/verify", { email: "ada@summertime.demo", code: demoCode })).code, "CODE_EXPIRED");
-  const again = await call(undefined, "POST", "/auth/code/start", { email: "bola@summertime.demo" });
-  for (let i = 0; i < 5; i++) await call(undefined, "POST", "/auth/code/verify", { email: "bola@summertime.demo", code: again.data.demoCode === "999999" ? "888888" : "999999" });
-  assert.equal((await call(undefined, "POST", "/auth/code/verify", { email: "bola@summertime.demo", code: again.data.demoCode })).code, "TOO_MANY_ATTEMPTS");
-  check("email codes: wrong code refused, right code signs in once, attempts capped");
+  // Real accounts: email and password, kept apart from the demo.
+  const stamp = Date.now();
+  const email = `guard-${stamp}@example.com`;
+  const password = "correct horse battery";
+  const profile = { displayName: "Guard Imports Ltd", role: "importer" };
+  assert.equal((await call(undefined, "POST", "/auth/signup", { email, password: "short", ...profile })).code, "WEAK_PASSWORD");
+  const signup = await auth("/auth/signup", { email, password, ...profile });
+  assert.equal(signup.status, 201);
+  assert.equal(signup.data.kind, "member");
+  assert.equal((await call(undefined, "POST", "/auth/signup", { email: email.toUpperCase(), password, ...profile })).code, "EMAIL_TAKEN");
+  check("sign-up: weak passwords and duplicate emails are refused; new accounts are members");
 
-  // Sign-up: a new email gets an account of its own on first sign-in.
-  const newEmail = `guard-${Date.now()}@example.com`;
-  const fresh = await call(undefined, "POST", "/auth/code/start", { email: newEmail });
-  assert.equal(fresh.data.accountExists, false);
-  assert.equal((await call(undefined, "POST", "/auth/code/verify", { email: newEmail, code: fresh.data.demoCode })).code, "PROFILE_REQUIRED");
-  const signupRes = await fetch(`${API}/auth/code/verify`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: newEmail, code: fresh.data.demoCode, profile: { displayName: "Guard Imports Ltd", role: "importer" } }),
-  });
-  assert.equal(signupRes.status, 200);
-  const newCookie = (signupRes.headers.get("set-cookie") ?? "").split(";")[0]!;
-  const newMe = (await call(newCookie, "GET", "/auth/me")).data;
-  assert.equal(newMe.role, "importer");
-  assert.equal(newMe.displayName, "Guard Imports Ltd");
-  await until("the new account is funded", async () => (await call(newCookie, "GET", "/me/balance")).data?.available?.micro !== "0");
-  const back = await call(undefined, "POST", "/auth/code/start", { email: newEmail.toUpperCase() });
-  assert.equal(back.data.accountExists, true);
-  const backRes = await fetch(`${API}/auth/code/verify`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: newEmail, code: back.data.demoCode }),
-  });
-  assert.equal(backRes.status, 200);
-  assert.equal(((await backRes.json()) as { data: { id: string } }).data.id, newMe.id);
-  check("sign-up: a new email creates a funded account of its own; signing in again reuses it");
+  for (const attempt of [
+    { email, password: "wrong password!" },
+    { email: `nobody-${stamp}@example.com`, password },
+    { email: "ada@summertime.demo", password },
+  ])
+    assert.equal((await auth("/auth/login", attempt)).code, "INVALID_CREDENTIALS");
+  const login1 = await auth("/auth/login", { email: email.toUpperCase(), password });
+  assert.equal(login1.status, 200);
+  assert.equal((await call(login1.cookie, "GET", "/auth/me")).data.email, email);
+  assert.equal((await call(undefined, "POST", "/auth/demo-login", { handle: signup.data.handle })).status, 404);
+  check("sign-in: one answer for wrong password, unknown email and demo accounts; demo sign-in refuses real accounts");
+
+  const demoList = (await call(undefined, "GET", "/auth/demo-accounts")).data as { email: string }[];
+  assert.ok(!demoList.some((a) => a.email === email));
+  assert.ok(!((await call(fwd, "GET", "/importers")).data as { handle: string }[]).some((i) => i.handle === signup.data.handle));
+  const realFwd = await auth("/auth/signup", { email: `guard-fwd-${stamp}@example.com`, password, displayName: "Guard Freight", role: "forwarder" });
+  const realImporters = (await call(realFwd.cookie, "GET", "/importers")).data as { handle: string }[];
+  assert.ok(realImporters.some((i) => i.handle === signup.data.handle));
+  assert.ok(!realImporters.some((i) => i.handle === "ada"));
+  assert.equal((await call(login1.cookie, "GET", "/explorer/campaigns")).code, "DISABLED");
+  assert.equal((await call(ada, "GET", `/explorer/x?as=${signup.data.handle}`)).status, 404);
+  check("separation: demo lists, importer lists and the privacy explorer never mix demo and real accounts");
+
+  assert.equal((await call(login1.cookie, "POST", "/auth/password/change", { currentPassword: "nope nope nope", newPassword: "another good passphrase" })).code, "WRONG_PASSWORD");
+  assert.equal((await call(login1.cookie, "POST", "/auth/password/change", { currentPassword: password, newPassword: "another good passphrase" })).status, 200);
+  assert.equal((await call(signup.cookie, "GET", "/auth/me")).status, 401);
+  assert.equal((await call(login1.cookie, "GET", "/auth/me")).status, 200);
+  assert.equal((await auth("/auth/login", { email, password })).code, "INVALID_CREDENTIALS");
+  check("password change: needs the current password, signs out other sessions, retires the old password");
+
+  assert.equal((await call(undefined, "POST", "/auth/password/forgot", { email })).data.sent, true);
+  assert.equal((await call(undefined, "POST", "/auth/password/forgot", { email: `nobody-${stamp}@example.com` })).data.sent, true);
+  const mail = await db.query<{ subject: string }>("SELECT subject FROM mail_outbox WHERE to_email = $1 ORDER BY id DESC LIMIT 1", [email]);
+  const resetCode = /(\d{6})/.exec(mail.rows[0]!.subject)![1]!;
+  const wrongCode = resetCode === "000000" ? "111111" : "000000";
+  assert.equal((await call(undefined, "POST", "/auth/password/reset", { email, code: wrongCode, password: "third good passphrase" })).code, "INVALID_CODE");
+  const reset = await auth("/auth/password/reset", { email, code: resetCode, password: "third good passphrase" });
+  assert.equal(reset.status, 200);
+  assert.equal((await call(login1.cookie, "GET", "/auth/me")).status, 401);
+  assert.equal((await call(undefined, "POST", "/auth/password/reset", { email, code: resetCode, password: "fourth good passphrase" })).code, "CODE_EXPIRED");
+  assert.equal((await auth("/auth/login", { email, password: "third good passphrase" })).status, 200);
+  check("password reset: emailed code, wrong code refused, single use, revokes old sessions");
+
+  const target = `locked-${stamp}@example.com`;
+  for (let i = 0; i < 8; i++) await auth("/auth/login", { email: target, password: "wrong wrong wrong" });
+  assert.equal((await auth("/auth/login", { email: target, password: "wrong wrong wrong" })).code, "TOO_MANY_ATTEMPTS");
+  check("sign-in is rate-limited per email");
+  memberImporter = signup.data.handle;
 
   // Authentication and roles.
   assert.equal((await call(undefined, "GET", "/campaigns")).status, 401);
@@ -180,6 +204,11 @@ async function main() {
   assert.equal((await call(fwd, "POST", `/campaigns/${id}/execute`)).code, "BELOW_THRESHOLD");
   check("no cancellation while capacity is held; no settlement below the threshold");
 
+  // A demo forwarder cannot invite a real importer (and the reverse).
+  assert.equal((await call(fwd, "POST", `/campaigns/${id}/invitations`, { importers: [memberImporter] })).code, "UNKNOWN_IMPORTER");
+  check("invitations stay within demo or within real accounts");
+
+  await db.end();
   console.log(results.join("\n"));
   console.log("GUARDS PASSED");
 }

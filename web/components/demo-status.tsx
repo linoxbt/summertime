@@ -18,7 +18,7 @@ export function DemoStatus() {
   return (
     <span className="fade-in label hidden items-center gap-2 rounded-full border border-line-strong bg-panel px-3 py-1 text-muted lg:inline-flex">
       <span className={`h-1.5 w-1.5 rounded-full ${live ? "bg-ok" : "bg-amber"}`} aria-hidden="true" />
-      {live ? "Demo live" : "Demo offline"}
+      {live ? "Online" : "Offline"}
     </span>
   );
 }

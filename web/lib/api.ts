@@ -44,12 +44,13 @@ const MESSAGES: Record<string, string> = {
   LEDGER_REJECTED: "The ledger rejected this action. Nothing was changed.",
   NETWORK: "We couldn't reach Summertime. Check your connection and try again.",
   BACKEND_OFFLINE: "Demo backend offline.",
-  PROFILE_REQUIRED: "Add your company name and role to create your account.",
+  INVALID_CREDENTIALS: "Email or password is incorrect.",
+  EMAIL_TAKEN: "An account with that email already exists. Sign in instead.",
+  EMAIL_UNAVAILABLE: "Password reset by email isn't available yet.",
   INVALID_CODE: "That code isn't right. Check it and try again.",
   CODE_EXPIRED: "That code has expired. Request a new one.",
   TOO_MANY_CODES: "Too many codes requested. Try again in a few minutes.",
-  TOO_MANY_ATTEMPTS: "Too many wrong codes. Request a new one.",
-  CODE_DELIVERY_UNAVAILABLE: "Email sign-in isn't available yet. Use a demo account.",
+  TOO_MANY_ATTEMPTS: "Too many attempts. Wait a few minutes and try again.",
 };
 
 export function friendlyError(e: unknown): string {

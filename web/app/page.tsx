@@ -40,16 +40,16 @@ export default function Home() {
               <p className="max-w-xs text-sm text-muted">Importers book space privately. Everyone pays in one settlement, only when the box is full.</p>
               <div className="flex flex-wrap gap-2">
                 <Link
-                  href="/login"
+                  href="/signup"
                   className="inline-flex min-h-11 items-center gap-2 rounded-full bg-fg px-6 text-sm font-medium text-page shadow-soft hover:bg-accent-strong hover:shadow-lift"
                 >
-                  Try the demo <span aria-hidden="true">→</span>
+                  Get started <span aria-hidden="true">→</span>
                 </Link>
                 <Link
-                  href="/how-it-works"
+                  href="/demo"
                   className="inline-flex min-h-11 items-center rounded-full border border-line-strong bg-panel px-6 text-sm font-medium text-fg hover:border-fg hover:bg-white"
                 >
-                  How it works
+                  Try the demo
                 </Link>
               </div>
             </div>

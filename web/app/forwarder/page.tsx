@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BalanceChip } from "@/components/importer";
 import { useQuery } from "@tanstack/react-query";
 import type { ForwarderCampaignSummary } from "@summertime/ledger";
 import { api } from "@/lib/api";
@@ -28,12 +29,15 @@ function CampaignList() {
       <PageHeader
         title="Campaigns"
         action={
-          <Link
-            href="/forwarder/new"
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-fg px-5 text-sm font-medium text-page shadow-soft hover:bg-accent-strong hover:shadow-lift"
-          >
-            New campaign
-          </Link>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <BalanceChip />
+            <Link
+              href="/forwarder/new"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-fg px-5 text-sm font-medium text-page shadow-soft hover:bg-accent-strong hover:shadow-lift"
+            >
+              New campaign
+            </Link>
+          </div>
         }
       />
       {q.isPending ? (
@@ -55,7 +59,9 @@ function CampaignList() {
               </span>
               Your sailings
             </span>
-            <span className="label text-faint">{q.data.length} campaign{q.data.length === 1 ? "" : "s"}</span>
+            <span className="label text-faint">
+              {q.data.length} campaign{q.data.length === 1 ? "" : "s"}
+            </span>
           </div>
           <div className="label hidden grid-cols-[1.6fr_1.4fr_0.7fr_1.1fr_0.9fr] gap-4 border-b border-line px-4 py-2 text-faint md:grid">
             <span>Campaign</span>

@@ -31,7 +31,7 @@ async function signIn(browser, name, opts = {}) {
   const context = await browser.newContext(opts);
   const page = await context.newPage();
   page.on("pageerror", (e) => errors.push(`${name}: ${e.message}`));
-  await page.goto(`${WEB}/login`);
+  await page.goto(`${WEB}/demo`);
   await page.getByRole("button", { name: new RegExp(name) }).click();
   await page.waitForURL(/\/(forwarder|importer|explorer|operations)/);
   return page;

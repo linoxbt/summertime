@@ -203,6 +203,9 @@ export interface SessionUser {
   role: "forwarder" | "importer" | "operator";
   party: string;
   mode: "pilot" | "wallet";
+  /** "demo": a seeded demo account (demo sign-in only). "member": a real account. */
+  kind: "demo" | "member";
+  email: string | null;
 }
 
 export interface ExplorerContract {

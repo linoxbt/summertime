@@ -9,6 +9,7 @@
 // ledger was reset (the sandbox is in-memory), the application database is reset too.
 
 import { LedgerError, T, TestToken } from "@summertime/ledger";
+import { hashPassword } from "./passwords.ts";
 import { CommandRunner, createDb, createLedger, createLogger, getSystemConfig, loadConfig, migrate, setSystemConfig, type Deployment } from "@summertime/platform";
 
 const config = loadConfig();
@@ -40,15 +41,35 @@ await migrate(db);
 
 const existing = await getSystemConfig<Deployment>(db, "deployment");
 const onLedger = new Set(await ledger.listParties());
+/**
+ * The Summertime operator signs in for real when OPERATOR_EMAIL and OPERATOR_PASSWORD are
+ * set: the operator account becomes a member account with that login and leaves the demo.
+ * Without them it stays a demo persona. Applied on every start.
+ */
+async function syncOperatorLogin(): Promise<void> {
+  const email = process.env.OPERATOR_EMAIL?.trim().toLowerCase();
+  const password = process.env.OPERATOR_PASSWORD;
+  if (email && password) {
+    await db.query(
+      "UPDATE users SET kind = 'member', email = $1, password_hash = $2, password_changed_at = now() WHERE handle = 'operator'",
+      [email, await hashPassword(password)],
+    );
+    log.info("operator signs in with OPERATOR_EMAIL");
+  } else {
+    await db.query("UPDATE users SET kind = 'demo', email = 'operator@summertime.demo', password_hash = NULL WHERE handle = 'operator'");
+  }
+}
+
 if (existing && onLedger.has(existing.operatorParty) && onLedger.has(existing.registryAdmin) && !process.argv.includes("--reset")) {
   log.info({ operator: existing.operatorParty }, "deployment already bootstrapped");
+  await syncOperatorLogin();
   await db.end();
   process.exit(0);
 }
 
 if (existing) log.warn("ledger was reset or --reset given: clearing application data");
 await db.query(
-  "TRUNCATE users, party_links, sessions, login_codes, campaign_index, campaign_invitees, command_log, idempotency_keys, ledger_offsets, bond_ledger, capacity_holds, system_config CASCADE",
+  "TRUNCATE users, party_links, sessions, login_codes, auth_attempts, mail_outbox, campaign_index, campaign_invitees, command_log, idempotency_keys, ledger_offsets, bond_ledger, capacity_holds, system_config CASCADE",
 );
 
 /** Allocate a party, waiting for the participant to finish connecting to its synchronizer. */
@@ -97,7 +118,7 @@ for (const a of accounts) {
   // One Ledger API user per party. In the sandbox there is no auth; on DevNet these users
   // carry exactly CanActAs(party), so the API and worker can only act as intended.
   await ledger.createUser(`u-${a.handle}`, party, [party]);
-  const u = await db.query<{ id: string }>("INSERT INTO users (handle, display_name, role, email) VALUES ($1, $2, $3, $4) RETURNING id", [
+  const u = await db.query<{ id: string }>("INSERT INTO users (handle, display_name, role, email, kind) VALUES ($1, $2, $3, $4, 'demo') RETURNING id", [
     a.handle,
     a.displayName,
     a.role,
@@ -125,5 +146,6 @@ for (const a of accounts) {
 
 const deployment: Deployment = { operatorParty, registryAdmin, instrument, network: "sandbox" };
 await setSystemConfig(db, "deployment", deployment);
+await syncOperatorLogin();
 log.info({ templates: Object.keys(T).length }, "bootstrap complete");
 await db.end();

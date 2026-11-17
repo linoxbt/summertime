@@ -27,7 +27,7 @@ export function SectionPage({ href, children }: { href: (typeof TOUR)[number]["h
           ) : (
             <PageLink href="/" dir="Back to" label="Home" />
           )}
-          {next ? <PageLink href={next.href} dir="Next" label={next.label} align="end" /> : <PageLink href="/login" dir="Ready?" label="Try the demo" align="end" />}
+          {next ? <PageLink href={next.href} dir="Next" label={next.label} align="end" /> : <PageLink href="/signup" dir="Ready?" label="Create an account" align="end" />}
         </nav>
       </div>
     </PublicPage>

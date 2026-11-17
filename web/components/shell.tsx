@@ -72,7 +72,15 @@ export function AppShell({ children, role }: { children: ReactNode; role?: Sessi
 
 function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) {
   const signOut = useSignOut();
-  const items = user ? [...NAV[user.role], { href: "/privacy", label: "Trust model" }, { href: "/", label: "Home" }] : [];
+  // The privacy explorer belongs to the demo; real accounts never see other parties' views.
+  const items = user
+    ? [
+        ...NAV[user.role].filter((n) => n.href !== "/explorer" || user.kind === "demo"),
+        { href: "/account", label: "Account" },
+        { href: "/privacy", label: "Trust model" },
+        { href: "/", label: "Home" },
+      ]
+    : [];
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b border-line bg-page/95 backdrop-blur">
@@ -82,7 +90,7 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
               <Link href={user ? (NAV[user.role][0]?.href ?? "/") : "/"} className="flex items-center gap-2">
                 <Logo />
               </Link>
-              <DemoChip />
+              {user && <DemoChip kind={user.kind} />}
             </div>
             {user && (
               <div className="flex items-center gap-3">
@@ -113,12 +121,12 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
   );
 }
 
-/** Demo environment marker (test USDCx only). */
-export function DemoChip() {
+/** Account marker: demo accounts are labelled as such; real accounts show the network. */
+export function DemoChip({ kind }: { kind: SessionUser["kind"] }) {
   return (
     <span className="label hidden items-center gap-2 rounded-full border border-line-strong bg-panel px-3 py-1 text-muted sm:inline-flex">
-      <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden="true" />
-      Demo · test USDCx
+      <span className={`h-1.5 w-1.5 rounded-full ${kind === "demo" ? "bg-amber" : "bg-ok"}`} aria-hidden="true" />
+      {kind === "demo" ? "Demo account" : "Test network"}
     </span>
   );
 }
