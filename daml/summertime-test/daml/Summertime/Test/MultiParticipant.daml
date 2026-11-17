@@ -1,0 +1,178 @@
+-- | Spec 26.2: privacy across participants. Runs a full campaign on a network where
+-- Summertime (operator, forwarder, registry) and each importer have participants of their
+-- own, then returns the identifiers an outside checker needs to inspect what each
+-- participant actually received (tests/multi-participant/check.ts).
+--
+-- Run with wall-clock time against tests/multi-participant/canton.conf; see
+-- tests/multi-participant/run.sh. Not part of the `dpm test` suite.
+module Summertime.Test.MultiParticipant where
+
+import DA.Assert ((===))
+import DA.Time (days, milliseconds, addRelTime)
+import DA.TextMap qualified as TextMap
+import Daml.Script
+
+import Splice.Api.Token.HoldingV1
+import Splice.Api.Token.AllocationV1
+import Splice.Api.Token.AllocationRequestV1
+import Splice.Api.Token.AllocationInstructionV1
+import Splice.Api.Token.MetadataV1
+import Splice.Api.Token.TransferInstructionV1
+import Splice.Testing.Tokens.TestTokenV1 (TokenRules(..))
+
+import Summertime.Campaign
+import Summertime.Records
+import Summertime.Reservation
+import Summertime.Settlement
+import Summertime.Types
+import Summertime.Test.Setup
+
+-- | What the checker needs: parties and the contracts private to each importer.
+data Result = Result with
+    operator : Party
+    forwarder : Party
+    importerA : Party
+    importerB : Party
+    commitmentA : ContractId Commitment
+    commitmentB : ContractId Commitment
+    allocationA : ContractId Allocation
+    allocationB : ContractId Allocation
+    outcome : ContractId CampaignOutcome
+  deriving (Eq, Show)
+
+on : Text -> ParticipantName
+on = ParticipantName
+
+-- | Wait until a query answers. Daml Script waits only for the submitting participant;
+-- other participants apply the same transaction a moment later, so a step that runs on
+-- another participant first waits for its input to arrive there.
+awaitSome : Text -> Script (Optional a) -> Script a
+awaitSome = awaitTries 300
+
+awaitTries : Int -> Text -> Script (Optional a) -> Script a
+awaitTries 0 what _ = fail ("timed out waiting for " <> what)
+awaitTries n what q = do
+  r <- q
+  case r of
+    Some x -> pure x
+    None -> do
+      sleep (milliseconds 100)
+      awaitTries (n - 1) what q
+
+-- | The importer's funds come from the registry by a token-standard transfer the importer
+-- accepts on its own participant (a submission cannot act for parties on two participants).
+fundImporter : Env -> Party -> Int -> Script (ContractId Holding)
+fundImporter env importer micro = do
+  source <- mint env env.admin micro
+  now <- getTime
+  result <- submit (actAs env.admin <> disclose env.rulesDisclosure) $
+    exerciseCmd (toInterfaceContractId @TransferFactory env.rulesCid) TransferFactory_Transfer with
+      expectedAdmin = env.admin
+      transfer = Transfer with
+        sender = env.admin
+        receiver = importer
+        amount = usdc micro
+        instrumentId = env.instrumentId
+        requestedAt = now
+        executeBefore = now `addRelTime` days 1
+        inputHoldingCids = [source]
+        meta = emptyMetadata
+      extraArgs = noExtraArgs
+  case result.output of
+    TransferInstructionResult_Pending{transferInstructionCid} -> do
+      _ <- awaitSome "the transfer offer at the importer" (queryInterfaceContractId importer transferInstructionCid)
+      accepted <- submit importer $ exerciseCmd transferInstructionCid TransferInstruction_Accept with extraArgs = noExtraArgs
+      case accepted.output of
+        TransferInstructionResult_Completed{receiverHoldingCids = [holding]} -> pure holding
+        _ -> fail "transfer acceptance did not complete"
+    _ -> fail "expected a pending transfer"
+
+-- | F-3 across participants: the importer requests, Summertime holds capacity and countersigns.
+reserveAcross : Env -> ContractId Campaign -> ContractId Invitation -> Party -> Int
+  -> Script (ContractId Campaign, ContractId CapacityReservation, ContractId SummertimeAllocationRequest)
+reserveAcross env campaignCid invitationCid importer size = do
+  _ <- awaitSome "the invitation at the importer" (queryContractId importer invitationCid)
+  requestCid <- submit importer $ exerciseCmd invitationCid Invitation_RequestReservation with reservedMilliCbm = size
+  _ <- awaitSome "the request at Summertime" (queryContractId env.forwarder requestCid)
+  (campaignCid', holdCid) <- submit env.forwarder $ exerciseCmd campaignCid Campaign_HoldCapacity with size
+  (reservationCid, allocationRequestCid) <- submit env.forwarder $ exerciseCmd requestCid ReservationRequest_Countersign with holdCid
+  pure (campaignCid', reservationCid, allocationRequestCid)
+
+-- | F-4: the importer's wallet allocates its leg from its own funds.
+allocateFunded : Env -> Party -> ContractId SummertimeAllocationRequest -> Script (ContractId Allocation)
+allocateFunded env importer allocationRequestCid = do
+  requestView <- awaitSome "the allocation request at the importer" (queryInterfaceContractId importer (toInterfaceContractId @AllocationRequest allocationRequestCid))
+  let [(transferLegId, transferLeg)] = TextMap.toList requestView.transferLegs
+      spec = AllocationSpecification with settlement = requestView.settlement; transferLegId; transferLeg
+  funds <- fundImporter env importer (truncate (transferLeg.amount * 1000000.0))
+  now <- getTime
+  result <- submit (actAs importer <> disclose env.rulesDisclosure) $
+    exerciseCmd (toInterfaceContractId @AllocationFactory env.rulesCid) AllocationFactory_Allocate with
+      expectedAdmin = env.admin
+      allocation = spec
+      requestedAt = now
+      inputHoldingCids = [funds]
+      extraArgs = noExtraArgs
+  case result.output of
+    AllocationInstructionResult_Completed{allocationCid} -> pure allocationCid
+    _ -> fail "allocation did not complete"
+
+joinFunded : Env -> ContractId Campaign -> ContractId Invitation -> Party -> Int -> Script (ContractId Campaign, Joined)
+joinFunded env campaignCid invitationCid importer size = do
+  (campaignCid', reservationCid, allocationRequestCid) <- reserveAcross env campaignCid invitationCid importer size
+  allocationCid <- allocateFunded env importer allocationRequestCid
+  _ <- awaitSome "the reservation at the importer" (queryContractId importer reservationCid)
+  (commitmentCid, ticketCid) <- submit importer $ exerciseCmd reservationCid CapacityReservation_Commit with allocationCid
+  _ <- awaitSome "the commitment at Summertime" (queryContractId env.forwarder commitmentCid)
+  _ <- awaitSome "the allocation at Summertime" (queryInterfaceContractId env.forwarder allocationCid)
+  pure (campaignCid', Joined with importer; commitmentCid; ticketCid; allocationCid; reservedMilliCbm = size)
+
+receiptsOf : Party -> Script [Receipt]
+receiptsOf p = awaitSome "receipts" do
+  rs <- query @Receipt p
+  pure (if null rs then None else Some (map snd rs))
+
+successAcrossParticipants : Script Result
+successAcrossParticipants = do
+  t0 <- getTime
+  admin <- allocatePartyByHintOn (PartyIdHint "Registry") (on "summertime")
+  forwarder <- allocatePartyByHintOn (PartyIdHint "Forwarder") (on "summertime")
+  operator <- allocatePartyByHintOn (PartyIdHint "Operator") (on "summertime")
+  outsider <- allocatePartyByHintOn (PartyIdHint "Outsider") (on "summertime")
+  importerA <- allocatePartyByHintOn (PartyIdHint "ImporterA") (on "importer-a")
+  importerB <- allocatePartyByHintOn (PartyIdHint "ImporterB") (on "importer-b")
+
+  rulesCid <- submit admin $ createCmd TokenRules with admin
+  Some rulesDisclosure <- queryDisclosure admin rulesCid
+  let instrumentId = InstrumentId with admin; id = "USDCx"
+      terms = (standardTerms instrumentId t0) with
+        containerCapacityMilliCbm = 20000
+        thresholdMilliCbm = 20000
+        lockTime = t0 `addRelTime` days 1
+        deadline = t0 `addRelTime` days 2
+        bondMicroUsdc = 60000000
+        claimWindowEnd = t0 `addRelTime` days 92
+      env = Env with admin; forwarder; operator; importers = [importerA, importerB]; outsider; rulesCid; rulesDisclosure; instrumentId; t0; terms
+
+  (campaignCid, _) <- openCampaign env "c-multi-participant"
+  [invA, invB] <- invite env campaignCid [importerA, importerB]
+  (campaignCid, a) <- joinFunded env campaignCid invA importerA 12000
+  (campaignCid, b) <- joinFunded env campaignCid invB importerB 8000
+  outcome <- submit forwarder $ exerciseCmd campaignCid Campaign_Execute with
+    included = settleLegsWithTickets [a, b]
+
+  -- Party-level checks (each importer's own view through its own participant).
+  None <- queryContractId importerB a.commitmentCid
+  None <- queryContractId importerA b.commitmentCid
+  receiptsA <- receiptsOf importerA
+  receiptsB <- receiptsOf importerB
+  map (.kind) receiptsA === [Settled]
+  map (.kind) receiptsB === [Settled]
+
+  pure Result with
+    operator; forwarder; importerA; importerB
+    commitmentA = a.commitmentCid
+    commitmentB = b.commitmentCid
+    allocationA = a.allocationCid
+    allocationB = b.allocationCid
+    outcome

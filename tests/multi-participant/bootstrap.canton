@@ -1,0 +1,13 @@
+// Create the synchronizer, connect every participant, upload the packages.
+bootstrap.synchronizer(
+  synchronizerName = "global",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  synchronizerOwners = Seq(sequencer1),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+)
+participants.all.synchronizers.connect_local(sequencer1, alias = "global")
+val dars = sys.env("SUMMERTIME_DARS").split(",").toSeq
+participants.all.foreach(p => dars.foreach(d => p.dars.upload(d)))
+println("MULTI-PARTICIPANT READY")

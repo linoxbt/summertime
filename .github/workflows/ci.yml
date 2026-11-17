@@ -32,6 +32,32 @@ jobs:
       - name: Daml Script tests
         run: cd daml/summertime-test && dpm test
 
+  multi-participant:
+    name: Privacy across participants (spec 26.2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dpm (Daml SDK)
+        run: |
+          curl -fsSL https://get.digitalasset.com/install/install.sh | sh -s "$DAML_SDK_VERSION"
+          echo "$HOME/.dpm/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+      - name: Three participants, one campaign, projection checks
+        run: tests/multi-participant/run.sh
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: multi-participant-logs
+          path: .run/mp-*
+
   typescript:
     name: TypeScript, unit tests and web build
     runs-on: ubuntu-latest

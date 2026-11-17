@@ -27,7 +27,8 @@ The MVP described here is implemented in this repository and runs end to end on 
 | Operations: reconciliation and monitoring (sections 19.3, 28) | Implemented | `services/worker/src/ops.ts`, `GET /ops/status` |
 | Web app (sections 21, 23) | Implemented | `web` |
 | CIP-56 registry integration | Implemented against the standard off-ledger API; tested against a local registry for the reference token | `packages/ledger/src/registry.ts`, `services/dev-registry` |
-| Privacy tests on separate participants (26.2) | Not yet: ledger-view tests pass on one participant; transaction-tree projection tests need LocalNet | — |
+| Privacy tests on separate participants (26.2) | Implemented: a campaign runs across three participants (Summertime, importer A, importer B) on one synchronizer; no transaction delivered to an importer's participant mentions another importer, and the single settlement transaction reaches each importer as its own leg only | `tests/multi-participant` (`run.sh`), `Summertime.Test.MultiParticipant`; CI job `multi-participant` |
+| Accounts (sections 22, 25) | Implemented: email and password (scrypt), rate-limited sign-in, password change and emailed reset; demo accounts kept separate | `services/api/src/routes/auth.ts`; guard tests |
 | DevNet deployment, real USDCx | Not yet | — |
 | Wallet mode | Not yet (pilot mode only) | — |
 
