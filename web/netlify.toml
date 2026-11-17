@@ -9,3 +9,7 @@
   NEXT_TELEMETRY_DISABLED = "1"
   # No localhost API default on hosted builds. Set API_URL in the Netlify UI once the backend is hosted.
   SUMMERTIME_HOSTED = "1"
+
+# Declared explicitly: Netlify's auto-detection misses Next.js in this monorepo layout.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
