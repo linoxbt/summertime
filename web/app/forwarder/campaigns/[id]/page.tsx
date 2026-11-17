@@ -136,7 +136,7 @@ function CampaignDetail() {
             </div>
             <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted">
               <Legend className="bg-fg" label="Committed" />
-              <Legend className="hatch border border-fg" label="Reserved, not yet signed" />
+              <Legend className="bg-line-strong" label="Reserved, not yet signed" />
               <Legend className="w-1 bg-amber" label="Threshold" />
             </div>
           </Card>
@@ -321,7 +321,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 function Legend({ className, label }: { className: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={`inline-block h-2.5 w-2.5 rounded-sm ${className}`} aria-hidden="true" />
+      <span className={`inline-block h-2.5 w-2.5 rounded-full ${className}`} aria-hidden="true" />
       {label}
     </span>
   );

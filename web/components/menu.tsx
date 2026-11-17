@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { GridFillers } from "./ui";
 
 export type MenuItem = { href: string; label: string };
 
 /**
- * Hamburger menu holding every page. The panel drops below the sticky header, inside the
- * page's outlined frame, as a grid of numbered cells.
+ * Hamburger menu holding every page. The panel slides down below the sticky header, inside
+ * the page's outlined frame, as a grid of numbered tiles.
  */
 export function Menu({ items, footer }: { items: MenuItem[]; footer?: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -24,7 +23,7 @@ export function Menu({ items, footer }: { items: MenuItem[]; footer?: ReactNode 
 
   useEffect(() => {
     if (!open) return;
-    firstLinkRef.current?.focus();
+    firstLinkRef.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setOpen(false);
@@ -50,37 +49,47 @@ export function Menu({ items, footer }: { items: MenuItem[]; footer?: ReactNode 
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
-        className={`grid h-10 w-10 flex-none place-items-center border border-fg ${open ? "bg-fg text-page" : "bg-page text-fg hover:bg-panel"}`}
+        className={`grid h-10 w-10 flex-none place-items-center rounded-full border ${
+          open ? "border-fg bg-fg text-page shadow-soft" : "border-line-strong bg-panel text-fg hover:border-fg hover:bg-white"
+        }`}
       >
         <span className="sr-only">{open ? "Close menu" : "Menu"}</span>
-        <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-          {open ? <path d="M4.5 4.5l11 11M15.5 4.5l-11 11" /> : <path d="M3 5.5h14M3 10h14M3 14.5h14" />}
+        <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+          {open ? <path d="M5 5l10 10M15 5L5 15" /> : <path d="M3.5 6h13M3.5 10h13M3.5 14h13" />}
         </svg>
       </button>
 
-      <div id={panelId} hidden={!open} className="absolute inset-x-0 top-full border-b border-fg bg-page">
-        <nav aria-label="All pages" className="mx-auto max-w-6xl border-x border-line">
-          <ul className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
-            {items.map((it, i) => {
-              const active = isCurrent(pathname, it.href);
-              return (
-                <li key={it.href} className="bg-page">
-                  <Link
-                    ref={i === 0 ? firstLinkRef : undefined}
-                    href={it.href}
-                    onClick={() => setOpen(false)}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex min-h-16 items-baseline gap-4 px-4 py-4 sm:px-6 sm:py-5 ${active ? "bg-fg text-page" : "text-fg hover:bg-panel"}`}
-                  >
-                    <span className={`label ${active ? "text-[#c9c8c2]" : "text-faint"}`}>{String(i + 1).padStart(2, "0")}</span>
-                    <span className="display text-2xl sm:text-3xl">{it.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-            <GridFillers count={items.length} sm={2} lg={4} />
-          </ul>
-          {footer && <div className="border-t border-line px-4 py-3 sm:px-6">{footer}</div>}
+      <div id={panelId} hidden={!open} className="absolute inset-x-0 top-full">
+        <nav aria-label="All pages" className="rise-in mx-auto max-w-6xl border-x border-line bg-page/95 px-3 pb-3 pt-3 backdrop-blur sm:px-4 sm:pb-4">
+          <div className="overflow-hidden rounded-3xl border border-line bg-panel shadow-lift">
+            <ul className="grid gap-1.5 p-1.5 sm:grid-cols-2 lg:grid-cols-4">
+              {items.map((it, i) => {
+                const active = isCurrent(pathname, it.href);
+                return (
+                  <li key={it.href}>
+                    <Link
+                      ref={i === 0 ? firstLinkRef : undefined}
+                      href={it.href}
+                      onClick={() => setOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={`group flex min-h-16 items-center justify-between gap-4 rounded-2xl px-4 py-4 sm:px-5 ${
+                        active ? "bg-fg text-page" : "text-fg hover:bg-page"
+                      }`}
+                    >
+                      <span className="flex items-baseline gap-3">
+                        <span className={`label ${active ? "text-[#c9c8c2]" : "text-faint"}`}>{String(i + 1).padStart(2, "0")}</span>
+                        <span className="display text-2xl sm:text-[1.7rem]">{it.label}</span>
+                      </span>
+                      <span aria-hidden="true" className={`text-lg transition-transform duration-300 group-hover:translate-x-1 ${active ? "text-page" : "text-faint group-hover:text-fg"}`}>
+                        →
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            {footer && <div className="border-t border-line px-4 py-3 sm:px-5">{footer}</div>}
+          </div>
         </nav>
       </div>
     </div>

@@ -2,10 +2,11 @@
 
 /* Summertime design system.
    Direction: Lantern Cargo (free Framer template), rebuilt as original code: warm paper,
-   near-black ink, condensed uppercase display type, mono labels, square corners and
-   visible grid rules framing every section. Illustrations are our own line drawings.
+   near-black ink, condensed uppercase display type, mono labels and visible grid rules
+   framing every section, finished with soft corners, soft shadows and smooth motion.
+   Illustrations are our own line drawings.
    Every text/background pair below meets WCAG AA (checked by tests/e2e/a11y.e2e.mjs). */
-@theme {
+@theme static {
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --font-display: "Koulen", "Arial Narrow", Impact, sans-serif;
@@ -36,18 +37,25 @@
   /* Backwards-compatible name used across the app. */
   --color-ink: #0b0a09;
 
-  /* Square corners everywhere; rounded-full (dots) is unaffected. */
-  --radius-xs: 0px;
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
-  --radius-2xl: 0px;
-  --radius-3xl: 0px;
+  /* Soft, consistent corners. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+  --radius-3xl: 30px;
+
+  /* Soft layered shadows instead of hard offsets. */
+  --shadow-soft: 0 1px 2px rgb(11 10 9 / 0.04), 0 8px 24px -12px rgb(11 10 9 / 0.16);
+  --shadow-lift: 0 1px 2px rgb(11 10 9 / 0.05), 0 18px 40px -18px rgb(11 10 9 / 0.28);
+
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html {
   font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
   color-scheme: light;
 }
@@ -59,7 +67,40 @@ body {
 
 :focus-visible {
   outline: 2px solid var(--color-link);
-  outline-offset: 2px;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Every interactive element eases between states. */
+a,
+button,
+input,
+select,
+textarea,
+summary,
+[role="button"] {
+  transition:
+    color 0.2s var(--ease-smooth),
+    background-color 0.2s var(--ease-smooth),
+    border-color 0.2s var(--ease-smooth),
+    box-shadow 0.25s var(--ease-smooth),
+    transform 0.2s var(--ease-smooth),
+    opacity 0.2s var(--ease-smooth);
+}
+button:not(:disabled):active,
+a[class*="bg-fg"]:active {
+  transform: scale(0.98);
+}
+
+::selection {
+  background: rgb(11 10 9 / 0.85);
+  color: #f3f2ee;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 input[type="range"],
@@ -114,8 +155,54 @@ input[type="radio"] {
   transform-box: fill-box;
 }
 
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.rise-in {
+  animation: rise-in 0.28s var(--ease-smooth) both;
+}
+.sheet-in {
+  animation: sheet-in 0.32s var(--ease-smooth) both;
+}
+.fade-in {
+  animation: fade-in 0.25s var(--ease-smooth) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .fill-in {
+  .fill-in,
+  .rise-in,
+  .sheet-in,
+  .fade-in {
     animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
   }
 }

@@ -10,12 +10,14 @@ Base URL: `http://localhost:7580` in development. The web app proxies `/api/*` t
 - **Authorization:** a session maps to exactly one party. Every read is made as that party on the ledger, so knowing an ID never grants access (spec section 20).
 - **Session:** cookie `st_session` (HttpOnly, SameSite=Lax).
 
-## Authentication (demo mode)
+## Authentication
 
 | Method and path | Body | Returns |
 | --- | --- | --- |
-| `GET /auth/demo-accounts` | — | `{ handle, displayName, role }[]` |
-| `POST /auth/demo-login` | `{ handle }` | `SessionUser`; sets cookie |
+| `POST /auth/code/start` | `{ email }` | `{ sent, expiresInSeconds, demoCode? }`. 6-digit code, 10 min, 5 attempts; a new code cancels older ones; at most 5 codes per 10 min. No email provider yet, so codes are only issued in demo mode, where `demoCode` is returned. Errors: `NO_ACCOUNT`, `TOO_MANY_CODES`, `CODE_DELIVERY_UNAVAILABLE` |
+| `POST /auth/code/verify` | `{ email, code }` | `SessionUser`; sets cookie. Errors: `INVALID_CODE`, `CODE_EXPIRED`, `TOO_MANY_ATTEMPTS` |
+| `GET /auth/demo-accounts` | — | `{ handle, displayName, role, email }[]` (demo mode) |
+| `POST /auth/demo-login` | `{ handle }` | `SessionUser`; sets cookie (demo mode) |
 | `POST /auth/logout` | — | `{ ok: true }` |
 | `GET /auth/me` | — | `SessionUser` or 401 |
 

@@ -28,7 +28,7 @@ export function PublicHeader() {
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
             <DemoStatus />
-            <Link href="/login" className="hidden min-h-10 items-center gap-2 bg-fg px-4 text-sm font-medium text-page hover:bg-accent-strong sm:inline-flex">
+            <Link href="/login" className="hidden min-h-10 items-center gap-2 rounded-full bg-fg px-5 text-sm font-medium text-page shadow-soft hover:bg-accent-strong hover:shadow-lift sm:inline-flex">
               Try the demo <span aria-hidden="true">→</span>
             </Link>
             <Menu items={PAGES} />
@@ -89,7 +89,7 @@ export function PublicPage({ children, footer = false }: { children: ReactNode; 
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
     <p className="label flex items-center gap-2 text-muted">
-      <span className="grid h-3 w-3 place-items-center rounded-full border border-fg" aria-hidden="true">
+      <span className="grid h-3.5 w-3.5 place-items-center rounded-full border border-fg" aria-hidden="true">
         <span className="h-1.5 w-1.5 rounded-full bg-fg" />
       </span>
       {children}
@@ -104,7 +104,7 @@ export function TrustTable() {
     { party: "Summertime", can: "Co-sign campaigns; hold and pay the bond", cannot: "Move importer funds; settle alone" },
   ];
   return (
-    <div className="overflow-x-auto border border-line bg-panel" tabIndex={0} role="region" aria-label="Trust model table (scrolls sideways)">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-panel shadow-soft" tabIndex={0} role="region" aria-label="Trust model table (scrolls sideways)">
       <table className="w-full min-w-[520px] text-left text-sm">
         <thead className="label text-muted">
           <tr className="border-b border-line">

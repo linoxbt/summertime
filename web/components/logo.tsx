@@ -5,7 +5,7 @@ export function Logo({ inverted = false }: { inverted?: boolean }) {
   return (
     <span className="inline-flex items-center gap-2.5">
       <svg viewBox="0 0 32 32" className="h-8 w-8 flex-none" aria-hidden="true">
-        <rect width="32" height="32" fill={tile} />
+        <rect width="32" height="32" rx="9" fill={tile} />
         <path d="M9 18a7 7 0 0 1 14 0Z" fill={ink} />
         <path d="M6 21.5h20M9 25h14" stroke={ink} strokeWidth="1.8" />
       </svg>

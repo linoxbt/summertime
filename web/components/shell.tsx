@@ -116,7 +116,7 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
 /** Demo environment marker (test USDCx only). */
 export function DemoChip() {
   return (
-    <span className="label hidden items-center gap-2 border border-line-strong px-2 py-1 text-muted sm:inline-flex">
+    <span className="label hidden items-center gap-2 rounded-full border border-line-strong bg-panel px-3 py-1 text-muted sm:inline-flex">
       <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden="true" />
       Demo · test USDCx
     </span>

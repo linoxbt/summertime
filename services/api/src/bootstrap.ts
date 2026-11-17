@@ -48,7 +48,7 @@ if (existing && onLedger.has(existing.operatorParty) && onLedger.has(existing.re
 
 if (existing) log.warn("ledger was reset or --reset given: clearing application data");
 await db.query(
-  "TRUNCATE users, party_links, sessions, campaign_index, campaign_invitees, command_log, idempotency_keys, ledger_offsets, bond_ledger, capacity_holds, system_config CASCADE",
+  "TRUNCATE users, party_links, sessions, login_codes, campaign_index, campaign_invitees, command_log, idempotency_keys, ledger_offsets, bond_ledger, capacity_holds, system_config CASCADE",
 );
 
 /** Allocate a party, waiting for the participant to finish connecting to its synchronizer. */
@@ -97,7 +97,12 @@ for (const a of accounts) {
   // One Ledger API user per party. In the sandbox there is no auth; on DevNet these users
   // carry exactly CanActAs(party), so the API and worker can only act as intended.
   await ledger.createUser(`u-${a.handle}`, party, [party]);
-  const u = await db.query<{ id: string }>("INSERT INTO users (handle, display_name, role) VALUES ($1, $2, $3) RETURNING id", [a.handle, a.displayName, a.role]);
+  const u = await db.query<{ id: string }>("INSERT INTO users (handle, display_name, role, email) VALUES ($1, $2, $3, $4) RETURNING id", [
+    a.handle,
+    a.displayName,
+    a.role,
+    `${a.handle}@summertime.demo`,
+  ]);
   await db.query("INSERT INTO party_links (user_id, party_id, mode) VALUES ($1, $2, 'pilot')", [u.rows[0]!.id, party]);
   if (a.role === "operator") operatorParty = party;
   if (a.usdc !== "0") {

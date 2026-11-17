@@ -59,10 +59,10 @@ export default function Home() {
             <div className="flex flex-col justify-end gap-5 px-4 pb-2 pt-6 sm:border-l sm:border-line sm:px-6 sm:pb-6">
               <p className="max-w-xs text-sm text-muted">Importers book space privately. Everyone pays in one settlement, only when the box is full.</p>
               <div className="flex flex-wrap gap-2">
-                <Link href="/login" className="inline-flex min-h-11 items-center gap-2 bg-fg px-5 text-sm font-medium text-page hover:bg-accent-strong">
+                <Link href="/login" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-fg px-6 text-sm font-medium text-page shadow-soft hover:bg-accent-strong hover:shadow-lift">
                   Try the demo <span aria-hidden="true">→</span>
                 </Link>
-                <Link href="#how-it-works" className="inline-flex min-h-11 items-center border border-fg px-5 text-sm font-medium text-fg hover:bg-panel">
+                <Link href="#how-it-works" className="inline-flex min-h-11 items-center rounded-full border border-line-strong bg-panel px-6 text-sm font-medium text-fg hover:border-fg hover:bg-white">
                   How it works
                 </Link>
               </div>
@@ -103,9 +103,9 @@ export default function Home() {
             <p className="display text-3xl text-fg sm:text-[2.6rem] sm:leading-[1.02]">
               Everyone pays, or nobody does. Your space stays yours. Your volume stays private.
             </p>
-            <ul className="mt-8 grid gap-px border border-line bg-line sm:grid-cols-3">
+            <ul className="mt-8 flex flex-wrap gap-2">
               {["No pooled escrow", "One atomic settlement", "Bonded forwarders"].map((t) => (
-                <li key={t} className="bg-page px-3 py-3 text-center text-sm text-muted">
+                <li key={t} className="rounded-full border border-line-strong bg-panel px-4 py-2 text-sm text-muted">
                   {t}
                 </li>
               ))}
@@ -209,14 +209,14 @@ export default function Home() {
 
         {/* Closing */}
         <section className="hatch border-b border-line px-4 py-16 text-center sm:py-24">
-          <div className="mx-auto max-w-xl bg-page px-4 py-8 sm:px-8">
+          <div className="mx-auto max-w-xl rounded-3xl border border-line bg-page px-4 py-10 shadow-lift sm:px-10">
             <h2 className="display text-5xl text-fg sm:text-6xl">Book space on the next box.</h2>
             <p className="mt-3 text-sm text-muted">Test USDCx. Real contracts. No sign-up.</p>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
-              <Link href="/login" className="inline-flex min-h-11 items-center gap-2 bg-fg px-5 text-sm font-medium text-page hover:bg-accent-strong">
+              <Link href="/login" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-fg px-6 text-sm font-medium text-page shadow-soft hover:bg-accent-strong hover:shadow-lift">
                 Try the demo <span aria-hidden="true">→</span>
               </Link>
-              <Link href="/privacy" className="inline-flex min-h-11 items-center border border-fg bg-page px-5 text-sm font-medium text-fg hover:bg-panel">
+              <Link href="/privacy" className="inline-flex min-h-11 items-center rounded-full border border-line-strong bg-panel px-6 text-sm font-medium text-fg hover:border-fg hover:bg-white">
                 Trust model
               </Link>
             </div>

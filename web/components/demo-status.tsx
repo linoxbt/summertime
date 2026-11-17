@@ -16,7 +16,7 @@ export function DemoStatus() {
   }, []);
   if (live === null) return null;
   return (
-    <span className="label hidden items-center gap-2 border border-line-strong px-2 py-1 text-muted lg:inline-flex">
+    <span className="fade-in label hidden items-center gap-2 rounded-full border border-line-strong bg-panel px-3 py-1 text-muted lg:inline-flex">
       <span className={`h-1.5 w-1.5 rounded-full ${live ? "bg-ok" : "bg-amber"}`} aria-hidden="true" />
       {live ? "Demo live" : "Demo offline"}
     </span>

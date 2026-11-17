@@ -108,7 +108,7 @@ export function Steps() {
               type="button"
               onClick={() => setActive(i)}
               aria-pressed={i === active}
-              className="grid min-h-16 w-full grid-cols-[4rem_1fr_auto] items-center gap-4 px-4 py-4 text-left hover:bg-panel sm:px-6"
+              className="grid min-h-16 w-full grid-cols-[4rem_1fr_auto] items-center gap-4 px-4 py-4 text-left hover:bg-panel/70 sm:px-6"
             >
               <span className={`display text-3xl ${i === active ? "text-fg" : "text-faint"}`}>{s.n}</span>
               <span className={`display text-2xl sm:text-3xl ${i === active ? "text-fg" : "text-faint"}`}>{s.title}</span>
@@ -118,7 +118,7 @@ export function Steps() {
         ))}
       </ol>
       <div className="hatch flex items-center justify-center border-t border-line p-6 sm:p-10 lg:border-t-0">
-        <div key={step.n} className="w-full max-w-sm motion-safe:animate-[fill-in_0.35s_ease-out_both]">
+        <div key={step.n} className="sheet-in w-full max-w-sm">
           {step.doc}
         </div>
       </div>
@@ -128,13 +128,13 @@ export function Steps() {
 
 function Doc({ title, ref_, children }: { title: string; ref_: string; children: ReactNode }) {
   return (
-    <div className="border border-fg bg-panel shadow-[6px_6px_0_0_#0b0a09]">
-      <div className="flex items-center justify-between border-b border-fg px-4 py-2">
+    <div className="overflow-hidden rounded-2xl border border-line bg-panel shadow-lift">
+      <div className="flex items-center justify-between border-b border-line bg-white/60 px-5 py-3">
         <span className="display text-xl text-fg">{title}</span>
         <span className="label text-faint">{ref_}</span>
       </div>
-      <dl className="divide-y divide-line px-4">{children}</dl>
-      <div className="flex items-end justify-between border-t border-line px-4 py-2">
+      <dl className="divide-y divide-line px-5">{children}</dl>
+      <div className="flex items-end justify-between border-t border-line px-5 py-3">
         <span className="label text-faint">Example</span>
         <Barcode />
       </div>
@@ -188,7 +188,7 @@ const STATUS_STYLE: Record<Lane["status"], string> = {
 
 export function LanesTable() {
   return (
-    <div className="overflow-x-auto border-y border-line bg-panel sm:border" tabIndex={0} role="region" aria-label="Example sailings (scrolls sideways)">
+    <div className="mx-4 overflow-x-auto rounded-2xl border border-line bg-panel shadow-soft sm:mx-0" tabIndex={0} role="region" aria-label="Example sailings (scrolls sideways)">
       <table className="w-full min-w-[720px] text-left text-sm">
         <thead>
           <tr className="label border-b border-line text-faint">
@@ -211,9 +211,9 @@ export function LanesTable() {
               </td>
               <td className="border-l border-line px-4 py-3">
                 <span className="flex items-center gap-3">
-                  <span className="relative h-2 w-20 bg-panel-2" aria-hidden="true">
-                    <span className="absolute inset-y-0 left-0 bg-fg" style={{ width: `${(l.filled / l.cap) * 100}%` }} />
-                    <span className="absolute inset-y-[-3px] w-px bg-fg" style={{ left: "80%" }} />
+                  <span className="relative h-1.5 w-20 rounded-full bg-panel-2" aria-hidden="true">
+                    <span className="absolute inset-y-0 left-0 rounded-full bg-fg" style={{ width: `${(l.filled / l.cap) * 100}%` }} />
+                    <span className="absolute inset-y-[-3px] w-0.5 rounded-full bg-amber" style={{ left: "80%" }} />
                   </span>
                   <span className="font-mono text-fg tabular">
                     {l.filled}/{l.cap}
@@ -221,7 +221,7 @@ export function LanesTable() {
                 </span>
               </td>
               <td className="border-l border-line px-4 py-3">
-                <span className={`label inline-block border px-2 py-0.5 ${STATUS_STYLE[l.status]}`}>{l.status}</span>
+                <span className={`label inline-block rounded-full border px-2.5 py-0.5 ${STATUS_STYLE[l.status]}`}>{l.status}</span>
               </td>
               <td className="border-l border-line px-4 py-3 font-mono text-muted">{l.lock}</td>
             </tr>
@@ -246,28 +246,38 @@ const QUESTIONS: { q: string; a: string }[] = [
 export function Questions() {
   const [open, setOpen] = useState(0);
   return (
-    <ul className="divide-y divide-line border-y border-line">
+    <ul className="mx-4 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel shadow-soft md:mx-0">
       {QUESTIONS.map((item, i) => {
         const isOpen = open === i;
         const id = `faq-${i}`;
         return (
-          <li key={item.q} className="bg-panel">
+          <li key={item.q}>
             <h3>
               <button
                 type="button"
                 aria-expanded={isOpen}
                 aria-controls={id}
                 onClick={() => setOpen(isOpen ? -1 : i)}
-                className="flex min-h-14 w-full items-center justify-between gap-4 px-4 py-3 text-left sm:px-5"
+                className="flex min-h-14 w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-white/60 sm:px-5"
               >
                 <span className="display text-lg text-fg sm:text-xl">{item.q}</span>
-                <span className={`grid h-8 w-8 flex-none place-items-center ${isOpen ? "bg-fg text-page" : "bg-panel-2 text-fg"}`} aria-hidden="true">
-                  {isOpen ? "−" : "+"}
+                <span
+                  className={`grid h-8 w-8 flex-none place-items-center rounded-full transition-transform duration-300 ease-smooth ${isOpen ? "rotate-45 bg-fg text-page" : "bg-panel-2 text-fg"}`}
+                  aria-hidden="true"
+                >
+                  +
                 </span>
               </button>
             </h3>
-            <div id={id} hidden={!isOpen} className="px-4 pb-4 text-sm text-muted sm:px-5">
-              {item.a}
+            <div
+              id={id}
+              inert={!isOpen}
+              aria-hidden={!isOpen}
+              className={`grid transition-[grid-template-rows,opacity] duration-300 ease-smooth ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+            >
+              <div className="overflow-hidden">
+                <p className="px-4 pb-4 text-sm text-muted sm:px-5">{item.a}</p>
+              </div>
             </div>
           </li>
         );

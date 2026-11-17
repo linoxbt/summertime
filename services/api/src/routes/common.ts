@@ -1,3 +1,4 @@
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { T, formatCbm, formatUsdc, type ExplorerContract, type ExplorerPane, type TemplateName } from "@summertime/ledger";
@@ -10,14 +11,76 @@ import { amount, balance, partyLedger, receiptDto } from "../reads.ts";
 export function commonRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/healthz", async () => ({ ok: true }));
 
-  // ---- Authentication (demo mode) ---------------------------------------------------------
+  // ---- Authentication ------------------------------------------------------------------------
 
+  /** The session user for a users.id, in the shape /auth/me returns. */
+  async function userDto(id: string) {
+    const r = await ctx.db.query<{ id: string; handle: string; display_name: string; role: string; party_id: string; mode: string }>(
+      "SELECT u.id, u.handle, u.display_name, u.role, p.party_id, p.mode FROM users u JOIN party_links p ON p.user_id = u.id WHERE u.id = $1",
+      [id],
+    );
+    const u = r.rows[0]!;
+    return { id: u.id, handle: u.handle, displayName: u.display_name, role: u.role, party: u.party_id, mode: u.mode };
+  }
+
+  // Email one-time codes. Codes are 6 digits, stored only as a keyed hash, valid for 10
+  // minutes and 5 attempts; a new code cancels older ones. There is no email provider yet,
+  // so codes are only issued in demo mode, where the code is returned for the page to show.
+  const CODE_TTL_MINUTES = 10;
+  const MAX_ATTEMPTS = 5;
+  const MAX_CODES_PER_WINDOW = 5;
+  const emailField = z.string().trim().toLowerCase().email().max(254);
+  const codeHash = (email: string, code: string) => createHash("sha256").update(ctx.config.sessionSecret).update("\0login\0").update(email).update("\0").update(code).digest("hex");
+
+  app.post("/auth/code/start", async (req) => {
+    const { email } = z.object({ email: emailField }).parse(req.body);
+    if (!ctx.config.demoMode) throw new ApiError(503, "CODE_DELIVERY_UNAVAILABLE", "Email delivery is not configured yet.");
+    const user = await ctx.db.query<{ id: string }>("SELECT id FROM users WHERE lower(email) = $1", [email]);
+    if (!user.rows[0]) throw new ApiError(404, "NO_ACCOUNT", "No account uses that email.");
+    const recent = await ctx.db.query<{ n: string }>(
+      "SELECT count(*) AS n FROM login_codes WHERE lower(email) = $1 AND created_at > now() - interval '10 minutes'",
+      [email],
+    );
+    if (Number(recent.rows[0]!.n) >= MAX_CODES_PER_WINDOW) throw new ApiError(429, "TOO_MANY_CODES", "Too many codes requested. Try again in a few minutes.");
+    const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
+    await ctx.db.query("UPDATE login_codes SET consumed_at = now() WHERE lower(email) = $1 AND consumed_at IS NULL", [email]);
+    await ctx.db.query(`INSERT INTO login_codes (email, code_hash, expires_at) VALUES ($1, $2, now() + interval '${CODE_TTL_MINUTES} minutes')`, [
+      email,
+      codeHash(email, code),
+    ]);
+    return { data: { sent: true, expiresInSeconds: CODE_TTL_MINUTES * 60, demoCode: code } };
+  });
+
+  app.post("/auth/code/verify", async (req, reply) => {
+    const { email, code } = z.object({ email: emailField, code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code") }).parse(req.body);
+    const r = await ctx.db.query<{ id: string; code_hash: string; attempts: number }>(
+      "SELECT id, code_hash, attempts FROM login_codes WHERE lower(email) = $1 AND consumed_at IS NULL AND expires_at > now() ORDER BY created_at DESC LIMIT 1",
+      [email],
+    );
+    const row = r.rows[0];
+    if (!row) throw new ApiError(400, "CODE_EXPIRED", "That code has expired. Request a new one.");
+    if (row.attempts >= MAX_ATTEMPTS) throw new ApiError(429, "TOO_MANY_ATTEMPTS", "Too many wrong codes. Request a new one.");
+    const expected = Buffer.from(row.code_hash, "hex");
+    const given = Buffer.from(codeHash(email, code), "hex");
+    if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
+      await ctx.db.query("UPDATE login_codes SET attempts = attempts + 1 WHERE id = $1", [row.id]);
+      throw new ApiError(400, "INVALID_CODE", "That code isn't right.");
+    }
+    const used = await ctx.db.query("UPDATE login_codes SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL RETURNING id", [row.id]);
+    if (!used.rowCount) throw new ApiError(400, "CODE_EXPIRED", "That code has expired. Request a new one.");
+    const user = await ctx.db.query<{ id: string }>("SELECT id FROM users WHERE lower(email) = $1", [email]);
+    if (!user.rows[0]) throw new ApiError(400, "INVALID_CODE", "That code isn't right.");
+    await createSession(ctx, user.rows[0].id, reply);
+    return { data: await userDto(user.rows[0].id) };
+  });
+
+  // Demo shortcut: sign in by choosing a seeded account.
   app.get("/auth/demo-accounts", async () => {
     if (!ctx.config.demoMode) throw forbidden("Demo sign-in is disabled.");
-    const r = await ctx.db.query<{ handle: string; display_name: string; role: string }>(
-      "SELECT handle, display_name, role FROM users ORDER BY CASE role WHEN 'forwarder' THEN 0 WHEN 'importer' THEN 1 ELSE 2 END, display_name",
+    const r = await ctx.db.query<{ handle: string; display_name: string; role: string; email: string | null }>(
+      "SELECT handle, display_name, role, email FROM users ORDER BY CASE role WHEN 'forwarder' THEN 0 WHEN 'importer' THEN 1 ELSE 2 END, display_name",
     );
-    return { data: r.rows.map((x) => ({ handle: x.handle, displayName: x.display_name, role: x.role })) };
+    return { data: r.rows.map((x) => ({ handle: x.handle, displayName: x.display_name, role: x.role, email: x.email })) };
   });
 
   app.post("/auth/demo-login", async (req, reply) => {
@@ -27,12 +90,7 @@ export function commonRoutes(app: FastifyInstance, ctx: AppContext) {
     const row = r.rows[0];
     if (!row) throw notFound("Account");
     await createSession(ctx, row.id, reply);
-    const r2 = await ctx.db.query<{ id: string; handle: string; display_name: string; role: string; party_id: string; mode: string }>(
-      "SELECT u.id, u.handle, u.display_name, u.role, p.party_id, p.mode FROM users u JOIN party_links p ON p.user_id = u.id WHERE u.id = $1",
-      [row.id],
-    );
-    const u = r2.rows[0]!;
-    return { data: { id: u.id, handle: u.handle, displayName: u.display_name, role: u.role, party: u.party_id, mode: u.mode } };
+    return { data: await userDto(row.id) };
   });
 
   app.post("/auth/logout", async (req, reply) => {

@@ -30,7 +30,7 @@ function CampaignList() {
         action={
           <Link
             href="/forwarder/new"
-            className="inline-flex min-h-11 items-center justify-center gap-2 bg-fg px-4 text-sm font-medium text-page hover:bg-accent-strong"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-fg px-5 text-sm font-medium text-page shadow-soft hover:bg-accent-strong hover:shadow-lift"
           >
             New campaign
           </Link>
@@ -47,7 +47,7 @@ function CampaignList() {
           </Link>
         </EmptyState>
       ) : (
-        <div className="overflow-hidden border border-line bg-panel">
+        <div className="overflow-hidden rounded-2xl border border-line bg-panel shadow-soft">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <span className="label flex items-center gap-3 text-fg">
               <span className="grid h-3 w-3 place-items-center rounded-full border border-fg" aria-hidden="true">
@@ -69,7 +69,7 @@ function CampaignList() {
               <li key={c.campaignId}>
                 <Link
                   href={`/forwarder/campaigns/${encodeURIComponent(c.campaignId)}`}
-                  className="grid gap-3 px-4 py-4 hover:bg-page md:grid-cols-[1.6fr_1.4fr_0.7fr_1.1fr_0.9fr] md:items-center md:gap-4"
+                  className="grid gap-3 px-4 py-4 hover:bg-white/70 md:grid-cols-[1.6fr_1.4fr_0.7fr_1.1fr_0.9fr] md:items-center md:gap-4"
                 >
                   <span className="min-w-0">
                     <span className="block truncate font-semibold text-fg">{c.title}</span>

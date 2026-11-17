@@ -27,7 +27,7 @@ export function BalanceChip({ showFaucet = true }: { showFaucet?: boolean }) {
   }
   return (
     <div className="flex flex-col items-start gap-2 sm:items-end">
-      <div className="rounded-xl border border-line bg-panel px-4 py-2 text-sm tabular">
+      <div className="rounded-full border border-line bg-panel px-4 py-2 text-sm tabular shadow-soft">
         {q.isPending ? (
           <span className="text-muted">Loading balance…</span>
         ) : q.isError ? (
@@ -60,14 +60,14 @@ export function ProgressPanel({ progress }: { progress: ProgressDto | undefined 
   return (
     <div>
       <div
-        className="relative h-3 overflow-hidden border border-fg bg-panel"
+        className="relative h-2.5 overflow-hidden rounded-full bg-panel-2"
         role="meter"
         aria-label="Container progress"
         aria-valuemin={0}
         aria-valuemax={progress.capacityCbm}
         aria-valuenow={progress.reservedCbm}
       >
-        <div className="absolute inset-y-0 left-0 bg-accent" style={{ width: `${filled}%` }} />
+        <div className="absolute inset-y-0 left-0 rounded-full bg-fg transition-[width] duration-700 ease-smooth" style={{ width: `${filled}%` }} />
         {thr < 100 && <div className="absolute inset-y-0 w-0.5 bg-amber" style={{ left: `calc(${thr}% - 1px)` }} />}
       </div>
       <p className="mt-2 text-sm tabular">
@@ -126,8 +126,8 @@ export function ReceiptsQuery() {
 export function PositionSlip({ pos, status, children }: { pos: PositionDto; status: ReactNode; children?: ReactNode }) {
   const [from, to] = (pos.route ?? "").split(/\s*(?:→|->)\s*/);
   return (
-    <section className="overflow-hidden border border-fg bg-panel shadow-[6px_6px_0_0_#0b0a09]">
-      <div className="flex items-center justify-between border-b border-fg px-5 py-2.5">
+    <section className="overflow-hidden rounded-3xl border border-line bg-panel shadow-lift">
+      <div className="flex items-center justify-between border-b border-line bg-white/60 px-5 py-3">
         <span className="display text-xl text-fg">Container booking</span>
         <PositionStageBadge stage={pos.stage} />
       </div>
@@ -136,7 +136,7 @@ export function PositionSlip({ pos, status, children }: { pos: PositionDto; stat
           <p className="label text-faint">From</p>
           <p className="display text-2xl text-fg [overflow-wrap:anywhere] sm:text-4xl">{from || "Origin"}</p>
         </div>
-        <span className="mb-3 h-px min-w-6 flex-1 border-t border-dashed border-fg" aria-hidden="true" />
+        <span className="mb-3 h-px min-w-6 flex-1 border-t border-dashed border-line-strong" aria-hidden="true" />
         <div className="min-w-0 text-right">
           <p className="label text-faint">To</p>
           <p className="display text-2xl text-fg [overflow-wrap:anywhere] sm:text-4xl">{to || "Destination"}</p>

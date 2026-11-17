@@ -19,17 +19,17 @@ export function Button({
   ...rest
 }: ComponentPropsWithRef<"button"> & { variant?: Variant; busy?: boolean }) {
   const styles: Record<Variant, string> = {
-    primary: "bg-fg text-page hover:bg-accent-strong disabled:bg-panel-2 disabled:text-faint",
-    secondary: "bg-panel text-fg border border-fg hover:bg-panel-2 disabled:text-faint disabled:border-line-strong",
-    danger: "bg-panel text-danger border border-danger hover:bg-danger-soft disabled:text-faint disabled:border-line",
-    ghost: "text-muted hover:bg-panel-2",
+    primary: "bg-fg text-page shadow-soft hover:bg-accent-strong hover:shadow-lift disabled:bg-panel-2 disabled:text-faint disabled:shadow-none",
+    secondary: "bg-panel text-fg border border-line-strong hover:border-fg hover:bg-white disabled:text-faint disabled:border-line",
+    danger: "bg-panel text-danger border border-danger/50 hover:border-danger hover:bg-danger-soft disabled:text-faint disabled:border-line",
+    ghost: "text-muted hover:bg-panel-2 hover:text-fg",
   };
   return (
     <button
       {...rest}
       disabled={disabled || busy}
       className={cx(
-        "inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-medium disabled:cursor-not-allowed",
         styles[variant],
         className,
       )}
@@ -51,7 +51,7 @@ export function Spinner({ className = "h-5 w-5" }: { className?: string }) {
 
 export function Card({ title, action, children, className }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cx("min-w-0 border border-line bg-panel p-4 sm:p-5", className)}>
+    <section className={cx("min-w-0 rounded-2xl border border-line bg-panel p-4 shadow-soft sm:p-6", className)}>
       {(title || action) && (
         <div className="mb-4 flex items-center justify-between gap-3">
           {title && (
@@ -81,12 +81,12 @@ export function Badge({ tone = "neutral", children }: { tone?: Tone; children: R
     danger: "border-danger bg-danger-soft text-danger",
     info: "border-fg bg-fg text-page",
   };
-  return <span className={cx("label inline-flex items-center border px-2 py-0.5 whitespace-nowrap", styles[tone])}>{children}</span>;
+  return <span className={cx("label inline-flex items-center rounded-full border px-2.5 py-0.5 whitespace-nowrap", styles[tone])}>{children}</span>;
 }
 
 export function LoadingState({ label = "Loading…" }: { label?: string }) {
   return (
-    <div role="status" className="flex items-center gap-3 border border-line bg-panel p-6 text-sm text-muted">
+    <div role="status" className="fade-in flex items-center gap-3 rounded-2xl border border-line bg-panel p-6 text-sm text-muted shadow-soft">
       <Spinner />
       {label}
     </div>
@@ -95,7 +95,7 @@ export function LoadingState({ label = "Loading…" }: { label?: string }) {
 
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   return (
-    <div role="alert" className="border border-danger bg-danger-soft p-5 text-sm text-danger">
+    <div role="alert" className="fade-in rounded-2xl border border-danger/40 bg-danger-soft p-5 text-sm text-danger">
       <p className="font-semibold">Something went wrong</p>
       <p className="mt-1">{friendlyError(error)}</p>
       {onRetry && (
@@ -109,8 +109,8 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
 
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="hatch border border-line-strong p-3">
-      <div className="bg-page p-5 text-center">
+    <div className="hatch rounded-2xl border border-line p-3">
+      <div className="rounded-xl bg-page p-5 text-center">
         <p className="font-semibold text-fg">{title}</p>
         {children && <div className="mt-1 text-sm text-muted">{children}</div>}
       </div>
@@ -121,7 +121,7 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
 export function InlineError({ error }: { error: unknown }) {
   if (!error) return null;
   return (
-    <p role="alert" className="border-l-2 border-danger bg-danger-soft px-3 py-2 text-sm text-danger">
+    <p role="alert" className="fade-in rounded-xl bg-danger-soft px-4 py-2.5 text-sm text-danger">
       {friendlyError(error)}
     </p>
   );
@@ -129,7 +129,7 @@ export function InlineError({ error }: { error: unknown }) {
 
 export function Notice({ tone = "neutral", children }: { tone?: "neutral" | "accent"; children: ReactNode }) {
   return (
-    <p className={cx("border-l-2 px-3 py-2 text-sm", tone === "accent" ? "border-fg bg-panel-2 text-fg" : "border-line-strong bg-panel-2 text-muted")}>{children}</p>
+    <p className={cx("rounded-xl px-4 py-2.5 text-sm", tone === "accent" ? "bg-panel-2 text-fg" : "bg-panel-2 text-muted")}>{children}</p>
   );
 }
 
@@ -199,15 +199,15 @@ export function CapacityBar({
   return (
     <div>
       <div
-        className="relative h-3 w-full overflow-hidden border border-fg bg-panel"
+        className="relative h-2.5 w-full overflow-hidden rounded-full bg-panel-2"
         role="meter"
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={capacity}
         aria-valuenow={committed}
       >
-        <div className="absolute inset-y-0 left-0 bg-fg" style={{ width: `${c}%` }} />
-        {h > 0 && <div className="hatch absolute inset-y-0" style={{ left: `${c}%`, width: `${h}%` }} />}
+        <div className="absolute inset-y-0 left-0 rounded-full bg-fg transition-[width] duration-700 ease-smooth" style={{ width: `${c}%` }} />
+        {h > 0 && <div className="absolute inset-y-0 rounded-r-full bg-line-strong" style={{ left: `${c}%`, width: `${h}%` }} />}
         {t < 100 && <div className="absolute inset-y-0 w-0.5 bg-amber" style={{ left: `calc(${t}% - 1px)` }} title="Threshold" />}
       </div>
     </div>
@@ -218,7 +218,7 @@ export function CopyText({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <span className="inline-flex max-w-full items-center gap-2">
-      <code className="truncate bg-panel-2 px-1.5 py-0.5 font-mono text-xs text-fg" title={value}>
+      <code className="truncate rounded-md bg-panel-2 px-1.5 py-0.5 font-mono text-xs text-fg" title={value}>
         {value}
       </code>
       <button
@@ -284,17 +284,17 @@ export function ConfirmSheet({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="presentation">
-      <div className="absolute inset-0 bg-fg/50" onClick={() => !busy && onClose()} aria-hidden="true" />
+      <div className="fade-in absolute inset-0 bg-fg/40 backdrop-blur-[2px]" onClick={() => !busy && onClose()} aria-hidden="true" />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative z-10 max-h-[92vh] w-full overflow-y-auto border border-fg bg-panel p-5 shadow-[8px_8px_0_0_#0b0a09] sm:max-w-lg"
+        className="sheet-in relative z-10 max-h-[92vh] w-full overflow-y-auto rounded-t-3xl border border-line bg-panel p-6 shadow-lift sm:max-w-lg sm:rounded-3xl"
       >
         <h2 id={titleId} className="display text-3xl text-fg">
           {title}
         </h2>
-        <dl className="mt-4 divide-y divide-line border border-line">
+        <dl className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line">
           {rows.map((r) => (
             <div key={r.label} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
               <dt className="label self-center text-faint">{r.label}</dt>
@@ -334,7 +334,7 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
 }
 
 export const inputClass =
-  "block w-full min-h-11 border border-line-strong bg-panel px-3 py-2 text-sm text-fg tabular placeholder:text-faint focus:border-fg focus:outline-none focus:ring-2 focus:ring-fg/15";
+  "block w-full min-h-11 rounded-xl border border-line-strong bg-white/70 px-3.5 py-2 text-sm text-fg tabular placeholder:text-faint hover:border-faint focus:border-fg focus:bg-white focus:outline-none focus:ring-4 focus:ring-fg/10 focus-visible:outline-none";
 
 export function PageHeader({ title, subtitle, action }: { title: ReactNode; subtitle?: ReactNode; action?: ReactNode }) {
   return (

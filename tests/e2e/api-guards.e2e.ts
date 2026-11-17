@@ -46,6 +46,28 @@ async function main() {
   const bola = await login("bola");
   const op = await login("operator");
 
+  // Email one-time codes.
+  assert.equal((await call(undefined, "POST", "/auth/code/start", { email: "nobody@example.com" })).code, "NO_ACCOUNT");
+  const started = await call(undefined, "POST", "/auth/code/start", { email: "Ada@Summertime.demo" });
+  assert.equal(started.status, 200);
+  const demoCode = started.data.demoCode as string;
+  assert.match(demoCode, /^\d{6}$/);
+  const wrong = demoCode === "000000" ? "111111" : "000000";
+  assert.equal((await call(undefined, "POST", "/auth/code/verify", { email: "ada@summertime.demo", code: wrong })).code, "INVALID_CODE");
+  const verifyRes = await fetch(`${API}/auth/code/verify`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "ada@summertime.demo", code: demoCode }),
+  });
+  assert.equal(verifyRes.status, 200);
+  const codeCookie = (verifyRes.headers.get("set-cookie") ?? "").split(";")[0]!;
+  assert.equal((await call(codeCookie, "GET", "/auth/me")).data.handle, "ada");
+  assert.equal((await call(undefined, "POST", "/auth/code/verify", { email: "ada@summertime.demo", code: demoCode })).code, "CODE_EXPIRED");
+  const again = await call(undefined, "POST", "/auth/code/start", { email: "bola@summertime.demo" });
+  for (let i = 0; i < 5; i++) await call(undefined, "POST", "/auth/code/verify", { email: "bola@summertime.demo", code: again.data.demoCode === "999999" ? "888888" : "999999" });
+  assert.equal((await call(undefined, "POST", "/auth/code/verify", { email: "bola@summertime.demo", code: again.data.demoCode })).code, "TOO_MANY_ATTEMPTS");
+  check("email codes: unknown email refused, wrong code refused, right code signs in once, attempts capped");
+
   // Authentication and roles.
   assert.equal((await call(undefined, "GET", "/campaigns")).status, 401);
   check("unauthenticated requests are refused");
