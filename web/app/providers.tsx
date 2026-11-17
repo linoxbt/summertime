@@ -29,7 +29,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <PrivyProvider
       appId={PRIVY_APP_ID}
       config={{
-        loginMethods: ["email", "google"],
+        loginMethods: ["email"],
         appearance: { theme: "light", accentColor: "#0b0a09", landingHeader: "Sign in to Summertime", showWalletLoginFirst: false },
         // Summertime holds no browser wallets: parties are hosted on the ledger (pilot mode).
         embeddedWallets: { ethereum: { createOnLogin: "off" }, solana: { createOnLogin: "off" } },

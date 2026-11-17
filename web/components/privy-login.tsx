@@ -13,7 +13,7 @@ import { Button, InlineError, Spinner, cx } from "./ui";
 type Role = "importer" | "forwarder";
 
 /**
- * Sign in or sign up with Privy (email code or Google). After Privy signs the person in, its
+ * Sign in or sign up with Privy (email code). After Privy signs the person in, its
  * tokens are exchanged for a Summertime session; a new person adds company and role once.
  */
 export function PrivyLogin({ title, intro }: { title: string; intro: string }) {
@@ -170,7 +170,7 @@ export function PrivyLogin({ title, intro }: { title: string; intro: string }) {
           </button>
         </p>
       ) : null}
-      <p className="label text-center text-faint">Email code or Google · secured by Privy</p>
+      <p className="label text-center text-faint">Email code · secured by Privy</p>
     </div>
   );
 }

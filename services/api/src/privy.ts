@@ -2,8 +2,8 @@
 //
 // Configuration (all on the API):
 //   PRIVY_APP_ID            the Privy app ID (the tokens' audience)
-//   PRIVY_VERIFICATION_KEY  the app's verification key (PEM, public) from the Privy dashboard,
-//                           Configuration > App settings; "\n" escapes are accepted
+//   PRIVY_VERIFICATION_KEY  optional: the app's verification key (PEM, public); "\n" escapes
+//                           are accepted. Without it the keys come from Privy's published JWKS
 //   PRIVY_APP_SECRET        optional: lets the API look the user up through Privy's REST API
 //                           when no identity token is sent
 //
@@ -11,7 +11,7 @@
 // Privy DID. Identity tokens (enabled in the dashboard: "Return user data in an identity
 // token") carry the same sub and a `linked_accounts` claim, a JSON string.
 
-import { importSPKI, jwtVerify } from "jose";
+import { createRemoteJWKSet, importSPKI, jwtVerify, type JWTVerifyGetKey } from "jose";
 
 export interface PrivyIdentity {
   did: string;
@@ -21,23 +21,34 @@ export interface PrivyIdentity {
 export class PrivyError extends Error {}
 
 let keyPromise: Promise<CryptoKey> | undefined;
+let jwks: JWTVerifyGetKey | undefined;
 
 export function privyConfigured(): boolean {
-  return Boolean(process.env.PRIVY_APP_ID && process.env.PRIVY_VERIFICATION_KEY);
+  return Boolean(process.env.PRIVY_APP_ID);
 }
 
-function verificationKey(): Promise<CryptoKey> {
-  keyPromise ??= importSPKI(process.env.PRIVY_VERIFICATION_KEY!.replaceAll("\\n", "\n").trim(), "ES256");
-  return keyPromise;
+function verificationKey(): Promise<CryptoKey> | JWTVerifyGetKey {
+  const pem = process.env.PRIVY_VERIFICATION_KEY;
+  if (pem) {
+    keyPromise ??= importSPKI(pem.replaceAll("\\n", "\n").trim(), "ES256");
+    return keyPromise;
+  }
+  jwks ??= createRemoteJWKSet(
+    new URL(`https://auth.privy.io/api/v1/apps/${encodeURIComponent(process.env.PRIVY_APP_ID!)}/jwks.json`),
+  );
+  return jwks;
 }
 
 async function verify(token: string): Promise<Record<string, unknown>> {
   try {
-    const { payload } = await jwtVerify(token, await verificationKey(), {
+    const key = verificationKey();
+    const opts = {
       issuer: "privy.io",
       audience: process.env.PRIVY_APP_ID,
       algorithms: ["ES256"],
-    });
+    };
+    const { payload } =
+      typeof key === "function" ? await jwtVerify(token, key, opts) : await jwtVerify(token, await key, opts);
     return payload as Record<string, unknown>;
   } catch (e) {
     throw new PrivyError(`token rejected: ${e instanceof Error ? e.message : String(e)}`);
