@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SessionUser } from "@summertime/ledger";
 import { api, ApiError } from "./api";
+import { privySignOut } from "./privy";
 
 /** The signed-in user, or null when there is no session. */
 export function useSession() {
@@ -31,6 +32,7 @@ export function useSignOut() {
   return async () => {
     try {
       await api.post("/auth/logout");
+      await privySignOut();
     } finally {
       qc.clear();
       window.location.assign("/");

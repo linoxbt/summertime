@@ -8,9 +8,25 @@ import type { SessionUser } from "@summertime/ledger";
 import { api, newIdempotencyKey } from "@/lib/api";
 import { homeFor } from "@/lib/session";
 import { AuthField, AuthLayout, PasswordField } from "@/components/auth-layout";
+import { privyEnabled } from "@/lib/privy";
 import { Button, InlineError } from "@/components/ui";
 
-export default function ForgotPasswordPage() {
+export default function Page() {
+  if (privyEnabled)
+    return (
+      <AuthLayout eyebrow="Sign in" title="No password needed.">
+        <div className="space-y-5">
+          <p className="text-sm text-muted">Summertime signs you in with a one-time code sent to your email, so there is no password to reset.</p>
+          <Link href="/login" className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-fg text-base font-medium text-page shadow-soft hover:bg-accent-strong">
+            Sign in
+          </Link>
+        </div>
+      </AuthLayout>
+    );
+  return <ForgotPasswordPage />;
+}
+
+function ForgotPasswordPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const [step, setStep] = useState<"email" | "reset">("email");

@@ -12,6 +12,7 @@ Live: https://summertime-app.netlify.app
 ## Web (Netlify)
 
 - Config: `web/netlify.toml` (npm workspace build, Next.js runtime plugin).
+- `NEXT_PUBLIC_PRIVY_APP_ID` (Netlify environment variable, read at build time) turns on sign-in through Privy; without it the site keeps email and password sign-in.
 - `API_URL` (Netlify environment variable) is the backend's public URL. It is read at build
   time, so change it, then trigger a new deploy. Without it, `/api/*` answers
   `503 BACKEND_OFFLINE`.
@@ -40,6 +41,7 @@ after a start is fast.
 | `NODE_ENV` | `production` (secure cookies) |
 | `JAVA_OPTS` | `-Xms512m -Xmx2g` |
 | `BREVO_API_KEY`, `EMAIL_FROM` | email for password-reset codes through Brevo, which needs no custom domain: `EMAIL_FROM` is the single sender address verified in Brevo. (`RESEND_API_KEY` also works but needs a verified domain.) Without a provider, production refuses reset (`EMAIL_UNAVAILABLE`); development writes mail to the `mail_outbox` table |
+| `PRIVY_APP_ID`, `PRIVY_VERIFICATION_KEY` | sign-in through Privy (the app ID, and the verification key from Privy's dashboard, Configuration > App settings; both public). `PRIVY_APP_SECRET` is optional (user lookup when no identity token is sent) |
 | `OPERATOR_EMAIL`, `OPERATOR_PASSWORD` | the Summertime operator's real sign-in (set: `operator@summertime.app`). Applied when the values change; a password changed later in the app is kept. Without them the operator is a demo account |
 
 Service settings: Dockerfile `deploy/backend/Dockerfile`, restart on failure, watch paths

@@ -10,6 +10,14 @@ const nextConfig: NextConfig = {
   // @summertime/ledger is TypeScript source shared with the services.
   transpilePackages: ["@summertime/ledger"],
   poweredByHeader: false,
+  // Privy's SDK imports optional Solana packages from its own (hoisted) location; they are
+  // installed for the web workspace, so point the bundler at them. Summertime creates no
+  // wallets, so these only load if a Solana feature is ever used.
+  turbopack: {
+    resolveAlias: Object.fromEntries(
+      ["@solana/kit", "@solana-program/system", "@solana-program/token", "@solana-program/memo"].map((m) => [m, `./node_modules/${m}`]),
+    ),
+  },
   // The explanation pages were merged into /docs; old addresses go to the matching section.
   async redirects() {
     return [

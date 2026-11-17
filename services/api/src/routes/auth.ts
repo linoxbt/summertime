@@ -15,6 +15,7 @@ import { createSession, destroySession, me, requireUser, revokeSessions, session
 import { ApiError, forbidden, notFound } from "../errors.ts";
 import { mailConfigured, sendMail } from "../mailer.ts";
 import { dummyHash, hashPassword, passwordProblem, verifyPassword } from "../passwords.ts";
+import { privyConfigured, privyIdentity, type PrivyIdentity } from "../privy.ts";
 
 const emailField = z.string().trim().toLowerCase().email().max(254);
 const passwordField = z.string().min(1).max(200);
@@ -197,6 +198,55 @@ export function authRoutes(app: FastifyInstance, ctx: AppContext) {
     return { data: user };
   });
 
+  // ---- Privy -----------------------------------------------------------------------------
+  //
+  // The browser signs in with Privy and sends its access token (and identity token). The
+  // account is found by Privy user, then by verified email (linking an existing account), or
+  // created once the person gives a company name and role. Demo accounts are never matched.
+
+  app.post("/auth/privy", async (req, reply) => {
+    if (!privyConfigured()) throw new ApiError(503, "PRIVY_UNAVAILABLE", "Sign-in with Privy isn't set up yet.");
+    const body = z
+      .object({
+        accessToken: z.string().min(20).max(8000),
+        identityToken: z.string().min(20).max(16000).optional(),
+        profile: z.object({ displayName: z.string().trim().min(2).max(60), role: z.enum(["importer", "forwarder"]) }).optional(),
+      })
+      .parse(req.body);
+    let who: PrivyIdentity;
+    try {
+      who = await privyIdentity(body.accessToken, body.identityToken);
+    } catch (e) {
+      ctx.log.warn({ err: e instanceof Error ? e.message : String(e) }, "Privy sign-in refused");
+      throw new ApiError(401, "PRIVY_TOKEN_INVALID", "We couldn't confirm your sign-in. Please try again.");
+    }
+
+    const byDid = await ctx.db.query<{ id: string }>("SELECT id FROM users WHERE privy_did = $1", [who.did]);
+    let userId = byDid.rows[0]?.id;
+    if (!userId) {
+      const byEmail = await ctx.db.query<{ id: string; kind: string; privy_did: string | null }>(
+        "SELECT id, kind, privy_did FROM users WHERE lower(email) = $1",
+        [who.email],
+      );
+      const existing = byEmail.rows[0];
+      if (existing && existing.kind !== "member") throw new ApiError(409, "EMAIL_TAKEN", "That email belongs to a demo account.");
+      if (existing?.privy_did && existing.privy_did !== who.did)
+        throw new ApiError(409, "EMAIL_TAKEN", "That email is linked to another Privy account.");
+      if (existing) {
+        await ctx.db.query("UPDATE users SET privy_did = $2 WHERE id = $1", [existing.id, who.did]);
+        userId = existing.id;
+      }
+    }
+    let status = 200;
+    if (!userId) {
+      if (!body.profile) return reply.code(409).send({ error: { code: "PROFILE_REQUIRED", message: "Tell us your company and role.", email: who.email } });
+      userId = await createAccount(ctx, { email: who.email, displayName: body.profile.displayName, role: body.profile.role, passwordHash: null, privyDid: who.did });
+      status = 201;
+    }
+    await createSession(ctx, userId, reply);
+    return reply.code(status).send({ data: await userDto(userId) });
+  });
+
   // ---- Demo (demo mode only; demo accounts only) ------------------------------------------
 
   app.get("/auth/demo-accounts", async () => {
@@ -225,7 +275,7 @@ export function authRoutes(app: FastifyInstance, ctx: AppContext) {
  */
 async function createAccount(
   ctx: AppContext,
-  a: { email: string; displayName: string; role: "importer" | "forwarder"; passwordHash: string },
+  a: { email: string; displayName: string; role: "importer" | "forwarder"; passwordHash: string | null; privyDid?: string },
 ): Promise<string> {
   const base =
     a.email
@@ -242,9 +292,9 @@ async function createAccount(
   try {
     await client.query("BEGIN");
     const u = await client.query<{ id: string }>(
-      `INSERT INTO users (handle, display_name, role, email, kind, password_hash, password_changed_at)
-       VALUES ($1, $2, $3, $4, 'member', $5, now()) ON CONFLICT DO NOTHING RETURNING id`,
-      [handle, a.displayName, a.role, a.email, a.passwordHash],
+      `INSERT INTO users (handle, display_name, role, email, kind, password_hash, password_changed_at, privy_did)
+       VALUES ($1, $2, $3, $4, 'member', $5, CASE WHEN $5::text IS NULL THEN NULL ELSE now() END, $6) ON CONFLICT DO NOTHING RETURNING id`,
+      [handle, a.displayName, a.role, a.email, a.passwordHash, a.privyDid ?? null],
     );
     if (!u.rows[0]) throw new ApiError(409, "EMAIL_TAKEN", "An account with that email already exists. Sign in instead.");
     await client.query("INSERT INTO party_links (user_id, party_id, mode) VALUES ($1, $2, 'pilot')", [u.rows[0].id, party]);

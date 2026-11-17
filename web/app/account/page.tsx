@@ -6,6 +6,7 @@ import { PasswordField } from "@/components/auth-layout";
 import { Button, Card, CopyText, InlineError, KeyValues, Notice, PageHeader } from "@/components/ui";
 import { api, newIdempotencyKey } from "@/lib/api";
 import { useSession, useSignOut } from "@/lib/session";
+import { privyEnabled } from "@/lib/privy";
 
 export default function AccountPage() {
   return (
@@ -40,7 +41,13 @@ function Account() {
           </div>
         </Card>
         <div className="space-y-4">
-          {user.kind === "member" ? <ChangePassword /> : <Notice>Demo accounts have no password. Create your own account to sign in for real.</Notice>}
+          {user.kind === "demo" ? (
+            <Notice>Demo accounts have no password. Create your own account to sign in for real.</Notice>
+          ) : privyEnabled ? (
+            <Notice>You sign in with a one-time code sent to {user.email ?? "your email"}.</Notice>
+          ) : (
+            <ChangePassword />
+          )}
           <Card title="Session">
             <Button variant="secondary" onClick={signOut}>
               Sign out

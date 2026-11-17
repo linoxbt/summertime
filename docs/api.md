@@ -23,6 +23,7 @@ accounts never mix: importer lists, invitations and the privacy explorer stay wi
 | `POST /auth/password/forgot` | `{ email }` | `{ sent: true }` whether or not the account exists; emails a 6-digit code (15 min, 5 attempts, 3 per 15 min). `EMAIL_UNAVAILABLE` in production without an email provider |
 | `POST /auth/password/reset` | `{ email, code, password }` | `SessionUser`; sets cookie; signs out every other session. Errors: `INVALID_CODE`, `CODE_EXPIRED`, `TOO_MANY_ATTEMPTS`, `WEAK_PASSWORD` |
 | `POST /auth/password/change` | `{ currentPassword, newPassword }` | `{ ok: true }`; signs out every other session. `WRONG_PASSWORD`, `WEAK_PASSWORD`; demo accounts get 403 |
+| `POST /auth/privy` | `{ accessToken, identityToken?, profile?: { displayName, role } }` | Sign in with Privy. Tokens are verified (ES256, issuer `privy.io`, audience = the app ID, `PRIVY_VERIFICATION_KEY`); the email comes from the identity token (or Privy's REST API with `PRIVY_APP_SECRET`). Finds the account by Privy user, else links a member account with the same email, else answers 409 `PROFILE_REQUIRED` until `profile` is sent, then creates one (201). Errors: `PRIVY_TOKEN_INVALID` (401), `EMAIL_TAKEN` (demo email or another Privy user), `PRIVY_UNAVAILABLE` |
 | `POST /auth/logout` | — | `{ ok: true }` |
 | `GET /auth/me` | — | `SessionUser` (`kind`, `email` included) or 401 |
 | `GET /auth/demo-accounts` | — | demo accounts only `{ handle, displayName, role, email }[]` (demo mode) |

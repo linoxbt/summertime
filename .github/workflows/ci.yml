@@ -112,9 +112,12 @@ jobs:
           npm install --no-save playwright@1
           npx playwright install --with-deps chromium
       - run: npm run build -w web
+      - name: Privy test key (throwaway, for the Privy sign-in test)
+        run: node tests/e2e/privy-test-key.mjs --github-env >> "$GITHUB_ENV"
       - name: Start the stack
         run: scripts/dev.sh
       - run: npm run e2e:guards
+      - run: npx tsx tests/e2e/privy.e2e.ts
       - run: npm run e2e:ops
       - run: npm run e2e:api
       - run: npm run e2e:ui

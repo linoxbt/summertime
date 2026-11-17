@@ -8,11 +8,34 @@ import type { SessionUser } from "@summertime/ledger";
 import { api, newIdempotencyKey } from "@/lib/api";
 import { homeFor } from "@/lib/session";
 import { AuthField, AuthLayout, PasswordField } from "@/components/auth-layout";
+import { PrivyLogin } from "@/components/privy-login";
+import { privyEnabled } from "@/lib/privy";
 import { Button, InlineError, cx } from "@/components/ui";
 
 type Role = "importer" | "forwarder";
 
-export default function SignupPage() {
+export default function Page() {
+  if (privyEnabled)
+    return (
+      <AuthLayout eyebrow="Create an account" title="Welcome aboard." below={<DemoLink />}>
+        <PrivyLogin title="Create your account" intro="We'll email you a one-time code, then ask for your company and role." />
+      </AuthLayout>
+    );
+  return <SignupPage />;
+}
+
+function DemoLink() {
+  return (
+    <>
+      Just looking?{" "}
+      <Link href="/demo" className="font-medium text-link hover:underline">
+        Try the demo
+      </Link>
+    </>
+  );
+}
+
+function SignupPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const [company, setCompany] = useState("");

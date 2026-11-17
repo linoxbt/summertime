@@ -8,9 +8,32 @@ import type { SessionUser } from "@summertime/ledger";
 import { api, newIdempotencyKey } from "@/lib/api";
 import { homeFor } from "@/lib/session";
 import { AuthField, AuthLayout, PasswordField } from "@/components/auth-layout";
+import { PrivyLogin } from "@/components/privy-login";
+import { privyEnabled } from "@/lib/privy";
 import { Button, InlineError } from "@/components/ui";
 
-export default function LoginPage() {
+export default function Page() {
+  if (privyEnabled)
+    return (
+      <AuthLayout eyebrow="Sign in" title="Welcome back." below={<DemoLink />}>
+        <PrivyLogin title="Sign in or create an account" intro="We'll email you a one-time code. New here? You'll set up your account next." />
+      </AuthLayout>
+    );
+  return <LoginPage />;
+}
+
+function DemoLink() {
+  return (
+    <>
+      Just looking?{" "}
+      <Link href="/demo" className="font-medium text-link hover:underline">
+        Try the demo
+      </Link>
+    </>
+  );
+}
+
+function LoginPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
