@@ -32,12 +32,7 @@ const adaPos = positions.find((p) => p.stage === "settled") ?? positions[0];
 
 const pages = [
   { who: null, path: "/" },
-  { who: null, path: "/how-it-works" },
-  { who: null, path: "/the-box" },
-  { who: null, path: "/sailings" },
-  { who: null, path: "/canton" },
-  { who: null, path: "/questions" },
-  { who: null, path: "/privacy" },
+  { who: null, path: "/docs" },
   { who: null, path: "/login" },
   { who: null, path: "/signup" },
   { who: null, path: "/forgot-password" },

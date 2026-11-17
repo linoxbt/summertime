@@ -77,7 +77,7 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
     ? [
         ...NAV[user.role].filter((n) => n.href !== "/explorer" || user.kind === "demo"),
         { href: "/account", label: "Account" },
-        { href: "/privacy", label: "Trust model" },
+        { href: "/docs", label: "Docs" },
         { href: "/", label: "Home" },
       ]
     : [];

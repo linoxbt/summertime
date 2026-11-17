@@ -10,6 +10,17 @@ const nextConfig: NextConfig = {
   // @summertime/ledger is TypeScript source shared with the services.
   transpilePackages: ["@summertime/ledger"],
   poweredByHeader: false,
+  // The explanation pages were merged into /docs; old addresses go to the matching section.
+  async redirects() {
+    return [
+      { source: "/how-it-works", destination: "/docs#how-it-works", permanent: false },
+      { source: "/the-box", destination: "/docs#anatomy", permanent: false },
+      { source: "/sailings", destination: "/docs#sailings", permanent: false },
+      { source: "/canton", destination: "/docs#why-canton", permanent: false },
+      { source: "/questions", destination: "/docs#questions", permanent: false },
+      { source: "/privacy", destination: "/docs#trust-model", permanent: false },
+    ];
+  },
   async rewrites() {
     // The browser only ever talks to the web origin; the API is proxied so the session
     // cookie stays first-party. The browser never talks to the Ledger API (spec section 21).

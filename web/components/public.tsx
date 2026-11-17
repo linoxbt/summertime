@@ -9,12 +9,7 @@ export const PRIVACY_PROMISE =
 
 const PAGES = [
   { href: "/", label: "Home" },
-  { href: "/how-it-works", label: "How it works" },
-  { href: "/the-box", label: "The box" },
-  { href: "/sailings", label: "Sailings" },
-  { href: "/canton", label: "Why Canton" },
-  { href: "/questions", label: "Questions" },
-  { href: "/privacy", label: "Trust model" },
+  { href: "/docs", label: "Docs" },
   { href: "/login", label: "Sign in" },
   { href: "/demo", label: "Demo" },
 ];
@@ -51,8 +46,8 @@ export function PublicFooter() {
           <Logo inverted />
           <p className="mt-4 max-w-xs text-sm">Shared containers. One settlement. Built on Canton with USDCx.</p>
         </div>
-        <FooterCol title="Product" links={[["/how-it-works", "How it works"], ["/the-box", "The box"], ["/sailings", "Sailings"], ["/signup", "Create account"], ["/demo", "Demo"]]} />
-        <FooterCol title="Project" links={[["https://github.com/linoxbt/summertime", "Source"], ["https://www.canton.network", "Canton Network"], ["/questions", "Questions"], ["/privacy", "Trust model"]]} last />
+        <FooterCol title="Product" links={[["/docs", "Docs"], ["/signup", "Create account"], ["/demo", "Demo"]]} />
+        <FooterCol title="Project" links={[["https://github.com/linoxbt/summertime", "Source"], ["https://www.canton.network", "Canton Network"], ["/docs#trust-model", "Trust model"]]} last />
       </div>
       <div className="border-t border-[#2c2b28]">
         <p className="label mx-auto max-w-6xl border-x border-[#2c2b28] px-4 py-4 text-[#a6a59f] sm:px-6">© 2026 Summertime · Unaudited pilot · Test USDCx only</p>

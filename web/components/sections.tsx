@@ -122,7 +122,7 @@ export function PrivacySection({ standalone = false }: { standalone?: boolean })
       </div>
       <div className="flex flex-col gap-4 border-t border-line p-4 sm:flex-row sm:items-end sm:justify-between sm:p-6">
         <blockquote className="max-w-3xl border-l-2 border-fg pl-4 text-sm text-muted">&ldquo;{PRIVACY_PROMISE}&rdquo;</blockquote>
-        <Link href="/privacy" className="label flex-none text-link hover:underline">
+        <Link href="/docs#trust-model" className="label flex-none text-link hover:underline">
           Full trust model →
         </Link>
       </div>
