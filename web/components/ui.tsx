@@ -347,3 +347,24 @@ export function PageHeader({ title, subtitle, action }: { title: ReactNode; subt
     </div>
   );
 }
+
+/**
+ * Hatched filler cells that complete the last row of a 1px-gap grid (`gap-px bg-line`),
+ * so leftover space reads as part of the drawing instead of a grey block.
+ * `sm`/`lg` are the grid's column counts at those breakpoints.
+ */
+export function GridFillers({ count, sm, lg, as: Tag = "li" }: { count: number; sm: number; lg: number; as?: "li" | "div" }) {
+  const smF = (sm - (count % sm)) % sm;
+  const lgF = (lg - (count % lg)) % lg;
+  return (
+    <>
+      {Array.from({ length: Math.max(smF, lgF) }, (_, i) => (
+        <Tag
+          key={i}
+          aria-hidden="true"
+          className={cx("hatch hidden bg-page", i < smF ? "sm:block" : "sm:hidden", i < lgF ? "lg:block" : "lg:hidden")}
+        />
+      ))}
+    </>
+  );
+}

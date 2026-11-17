@@ -7,7 +7,7 @@ import type { SessionUser } from "@summertime/ledger";
 import { api, newIdempotencyKey } from "@/lib/api";
 import { homeFor, useSession } from "@/lib/session";
 import { PublicPage } from "@/components/public";
-import { EmptyState, ErrorState, InlineError, LoadingState, Spinner } from "@/components/ui";
+import { EmptyState, ErrorState, GridFillers, InlineError, LoadingState, Spinner } from "@/components/ui";
 
 interface DemoAccount {
   handle: string;
@@ -49,7 +49,7 @@ export default function LoginPage() {
   const roles: SessionUser["role"][] = ["forwarder", "importer", "operator"];
   return (
     <PublicPage>
-      <div className="mx-auto max-w-6xl border-x border-line px-4 pb-16 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl flex-1 border-x border-line px-4 pb-16 sm:px-6">
         <p className="label -mx-4 border-b border-line px-4 py-3 text-faint sm:-mx-6 sm:px-6">Demo · test USDCx only · no sign-up</p>
         <h1 className="display mt-10 text-5xl text-fg sm:text-7xl">Pick an account.</h1>
         <p className="mt-3 text-muted">Sign in as a forwarder, an importer or the operator.</p>
@@ -100,6 +100,7 @@ export default function LoginPage() {
                           </button>
                         </li>
                       ))}
+                      <GridFillers count={list.length} sm={2} lg={3} />
                     </ul>
                   </section>
                 );

@@ -19,7 +19,7 @@ function Block({ title, items }: { title: string; items: string[] }) {
 export default function PrivacyPage() {
   return (
     <PublicPage>
-      <div className="mx-auto max-w-6xl border-x border-line">
+      <div className="mx-auto w-full max-w-6xl flex-1 border-x border-line">
       <article className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
         <h1 className="display text-5xl text-fg sm:text-7xl">Privacy and trust.</h1>
         <blockquote className="mt-6 border-l-2 border-fg pl-5 text-lg text-fg">&ldquo;{PRIVACY_PROMISE}&rdquo;</blockquote>

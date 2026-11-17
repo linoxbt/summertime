@@ -4,7 +4,7 @@ import { PublicPage } from "@/components/public";
 export default function NotFound() {
   return (
     <PublicPage>
-      <div className="mx-auto max-w-6xl border-x border-line px-4 py-24 text-center">
+      <div className="mx-auto w-full max-w-6xl flex-1 border-x border-line px-4 py-24 text-center">
         <p className="label text-faint">Error 404 · No such berth</p>
         <h1 className="display mt-4 text-6xl text-fg sm:text-8xl">Lost at sea.</h1>
         <p className="mt-3 text-muted">This page doesn&apos;t exist.</p>

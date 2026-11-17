@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, type ReactNode } from "react";
 import type { SessionUser } from "@summertime/ledger";
 import { useSession, useSignOut } from "@/lib/session";
-import { Button, ErrorState, LoadingState, cx } from "./ui";
+import { Button, ErrorState, LoadingState } from "./ui";
 import { Logo } from "./logo";
+import { Menu } from "./menu";
 
 const NAV: Record<SessionUser["role"], { href: string; label: string }[]> = {
   forwarder: [
@@ -70,75 +71,44 @@ export function AppShell({ children, role }: { children: ReactNode; role?: Sessi
 }
 
 function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) {
-  const pathname = usePathname();
   const signOut = useSignOut();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const nav = user ? NAV[user.role] : [];
+  const items = user ? [...NAV[user.role], { href: "/privacy", label: "Trust model" }, { href: "/", label: "Home" }] : [];
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b border-line bg-page/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 border-x border-line px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <Link href={user ? (nav[0]?.href ?? "/") : "/"} className="flex items-center gap-2">
-              <Logo />
-            </Link>
-            <DemoChip />
-          </div>
-          {user && (
-            <>
-              <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
-                {nav.map((n) => (
-                  <NavLink key={n.href} href={n.href} active={isActive(pathname, n.href)}>
-                    {n.label}
-                  </NavLink>
-                ))}
-              </nav>
-              <div className="hidden items-center gap-3 md:flex">
-                <span className="text-right text-xs leading-tight">
-                  <span className="block font-semibold text-fg">{user.displayName}</span>
-                  <span className="capitalize text-muted">{user.role}</span>
-                </span>
-                <Button variant="secondary" onClick={signOut} className="min-h-9 px-3 py-1.5">
-                  Sign out
-                </Button>
-              </div>
-              <button
-                type="button"
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-line-strong md:hidden"
-                aria-expanded={menuOpen}
-                aria-controls="mobile-nav"
-                onClick={() => setMenuOpen((o) => !o)}
-              >
-                <span className="sr-only">Menu</span>
-                <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-                  <path d="M3 5h14v2H3zM3 9h14v2H3zM3 13h14v2H3z" />
-                </svg>
-              </button>
-            </>
-          )}
-        </div>
-        {user && menuOpen && (
-          <nav id="mobile-nav" className="border-t border-line px-4 py-2 md:hidden" aria-label="Main">
-            <p className="py-2 text-xs text-muted">
-              Signed in as <span className="font-semibold text-fg">{user.displayName}</span> ({user.role})
-            </p>
-            {nav.map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                onClick={() => setMenuOpen(false)}
-                className={cx("block rounded-lg px-3 py-3 text-sm font-semibold", isActive(pathname, n.href) ? "bg-panel-2 text-fg" : "text-muted")}
-              >
-                {n.label}
+        <div className="relative">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 border-x border-line px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-3">
+              <Link href={user ? (NAV[user.role][0]?.href ?? "/") : "/"} className="flex items-center gap-2">
+                <Logo />
               </Link>
-            ))}
-            <button type="button" onClick={signOut} className="block w-full rounded-lg px-3 py-3 text-left text-sm font-semibold text-muted">
-              Sign out
-            </button>
-          </nav>
-        )}
+              <DemoChip />
+            </div>
+            {user && (
+              <div className="flex items-center gap-3">
+                <span className="hidden text-right text-xs leading-tight sm:block">
+                  <span className="block font-semibold text-fg">{user.displayName}</span>
+                  <span className="label text-faint">{user.role}</span>
+                </span>
+                <Menu
+                  items={items}
+                  footer={
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-sm text-muted">
+                        Signed in as <span className="font-semibold text-fg">{user.displayName}</span> · <span className="label">{user.role}</span>
+                      </span>
+                      <Button variant="secondary" onClick={signOut} className="min-h-10">
+                        Sign out
+                      </Button>
+                    </div>
+                  }
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </header>
-      <main className="mx-auto min-h-[calc(100vh-61px)] max-w-6xl border-x border-line px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 border-x border-line px-4 py-8 sm:px-6">{children}</main>
     </div>
   );
 }
@@ -153,19 +123,3 @@ export function DemoChip() {
   );
 }
 
-function isActive(pathname: string, href: string): boolean {
-  if (href === "/forwarder") return pathname === "/forwarder" || pathname.startsWith("/forwarder/campaigns");
-  return pathname === href || pathname.startsWith(href + "/");
-}
-
-function NavLink({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={cx("border-b-2 px-3 py-2 text-sm font-medium", active ? "border-fg text-fg" : "border-transparent text-muted hover:text-fg")}
-    >
-      {children}
-    </Link>
-  );
-}

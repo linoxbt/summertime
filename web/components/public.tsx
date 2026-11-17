@@ -1,38 +1,38 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { DemoStatus } from "./demo-status";
+import { Menu } from "./menu";
 import { Logo } from "./logo";
 
 export const PRIVACY_PROMISE =
   "Competing importers cannot see each other's reservations, volumes or identities. Your forwarder sees your reservation, exactly as it does today, and so does Summertime, which enforces the settlement rules. Funds move only if the container fills.";
 
-const NAV = [
+const PAGES = [
+  { href: "/", label: "Home" },
   { href: "/#how-it-works", label: "How it works" },
   { href: "/#anatomy", label: "The box" },
   { href: "/#sailings", label: "Sailings" },
-  { href: "/#privacy", label: "Privacy" },
   { href: "/#questions", label: "Questions" },
+  { href: "/privacy", label: "Trust model" },
+  { href: "/login", label: "Sign in" },
+  { href: "https://github.com/linoxbt/summertime", label: "Source" },
 ];
 
 export function PublicHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-page/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 border-x border-line px-4 py-3 sm:px-6">
-        <Link href="/">
-          <Logo />
-        </Link>
-        <nav className="hidden items-center gap-6 text-sm text-muted lg:flex" aria-label="Sections">
-          {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className="hover:text-fg">
-              {n.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="flex items-center gap-3">
-          <DemoStatus />
-          <Link href="/login" className="inline-flex min-h-10 items-center gap-2 bg-fg px-4 text-sm font-medium text-page hover:bg-accent-strong">
-            Try the demo <span aria-hidden="true">→</span>
+      <div className="relative">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 border-x border-line px-4 py-3 sm:px-6">
+          <Link href="/">
+            <Logo />
           </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <DemoStatus />
+            <Link href="/login" className="hidden min-h-10 items-center gap-2 bg-fg px-4 text-sm font-medium text-page hover:bg-accent-strong sm:inline-flex">
+              Try the demo <span aria-hidden="true">→</span>
+            </Link>
+            <Menu items={PAGES} />
+          </div>
         </div>
       </div>
     </header>
@@ -74,12 +74,13 @@ function FooterCol({ title, links, last }: { title: string; links: [string, stri
   );
 }
 
-export function PublicPage({ children }: { children: ReactNode }) {
+/** Public page: header with menu, outlined frame. The footer is shown on the landing page only. */
+export function PublicPage({ children, footer = false }: { children: ReactNode; footer?: boolean }) {
   return (
     <div className="flex min-h-screen flex-col">
       <PublicHeader />
-      <main className="flex-1">{children}</main>
-      <PublicFooter />
+      <main className="flex flex-1 flex-col [&>*]:w-full">{children}</main>
+      {footer && <PublicFooter />}
     </div>
   );
 }

@@ -36,7 +36,7 @@ const CANTON = [
 
 export default function Home() {
   return (
-    <PublicPage>
+    <PublicPage footer>
       <div className="mx-auto max-w-6xl border-x border-line">
         {/* Meta strip */}
         <div className="label grid border-b border-line text-faint sm:grid-cols-[1.15fr_1fr]">
