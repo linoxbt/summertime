@@ -9,8 +9,7 @@ import { useAction } from "@/lib/action";
 import { ImporterAftercare } from "@/components/aftercare";
 import { formatDateTime, relativeTime, shortId, shortParty, cbm } from "@/lib/format";
 import { AppShell } from "@/components/shell";
-import { PositionStageBadge } from "@/components/status";
-import { BalanceChip, ProgressPanel, ReceiptList } from "@/components/importer";
+import { BalanceChip, PositionSlip, ProgressPanel, ReceiptList } from "@/components/importer";
 import {
   Button,
   Card,
@@ -84,14 +83,14 @@ function Position() {
   return (
     <>
       <p className="mb-2 text-sm">
-        <Link href="/importer" className="font-semibold text-accent hover:underline">
+        <Link href="/importer" className="font-semibold text-link hover:underline">
           ← My space
         </Link>
       </p>
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-3">
-            {pos.title} <PositionStageBadge stage={pos.stage} />
+            {pos.title}
           </span>
         }
         subtitle={
@@ -108,8 +107,7 @@ function Position() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="min-w-0 space-y-4 lg:col-span-2">
-          <Card>
-            <StageBody pos={pos} settledUpdateId={settledReceipt?.updateId} />
+          <PositionSlip pos={pos} status={<StageBody pos={pos} settledUpdateId={settledReceipt?.updateId} />}>
             {(pos.actions.canCommit || pos.actions.canClaim || pos.actions.canWithdraw || pos.actions.canRelease) && (
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 {pos.actions.canCommit && <Button onClick={commit.openSheet}>Review and sign</Button>}
@@ -126,7 +124,7 @@ function Position() {
                 )}
               </div>
             )}
-          </Card>
+          </PositionSlip>
 
           <ImporterAftercare pos={pos} onDone={refresh} />
 
@@ -142,11 +140,9 @@ function Position() {
           </Card>
         </div>
 
-        <Card title="Your reservation">
+        <Card title="Terms">
           <KeyValues
             items={[
-              { label: "Space", value: pos.reserved && pos.reserved.milliCbm !== "0" ? `${cbm(pos.reserved)} CBM` : "—" },
-              { label: "Price", value: pos.locked && pos.locked.micro !== "0" ? `${pos.locked.display} USDCx` : "—" },
               { label: "Rate", value: `${t.ratePerCbm.display} USDCx / CBM` },
               ...(pos.bonus ? [{ label: "Failure bonus", value: `${pos.bonus.display} USDCx` }] : []),
               { label: "Lock time", value: `${formatDateTime(t.lockTime)} (${relativeTime(t.lockTime)})` },
@@ -175,10 +171,10 @@ function Position() {
         onClose={commit.close}
       >
         <CustodyNotice />
-        <details className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-          <summary className="cursor-pointer font-semibold text-ink">What you sign</summary>
+        <details className="rounded-lg border border-line px-3 py-2 text-sm">
+          <summary className="cursor-pointer font-semibold text-fg">What you sign</summary>
           {intent.isPending ? (
-            <p className="mt-2 flex items-center gap-2 text-slate-600">
+            <p className="mt-2 flex items-center gap-2 text-muted">
               <Spinner className="h-4 w-4" /> Loading…
             </p>
           ) : intent.isError ? (
@@ -255,8 +251,8 @@ function Position() {
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="text-slate-600">{label}</dt>
-      <dd className="truncate text-right font-mono text-ink" title={value}>
+      <dt className="text-muted">{label}</dt>
+      <dd className="truncate text-right font-mono text-fg" title={value}>
         {value}
       </dd>
     </div>
@@ -266,8 +262,8 @@ function Detail({ label, value }: { label: string; value: string }) {
 function StageBody({ pos, settledUpdateId }: { pos: PositionDto; settledUpdateId?: string }) {
   const t = pos.terms;
   const line = (text: string, spin = false) => (
-    <p className="flex items-center gap-2 font-semibold text-ink">
-      {spin && <Spinner className="h-5 w-5 text-accent" />}
+    <p className="flex items-center gap-2 font-semibold text-fg">
+      {spin && <Spinner className="h-5 w-5 text-link" />}
       {text}
     </p>
   );
@@ -281,8 +277,8 @@ function StageBody({ pos, settledUpdateId }: { pos: PositionDto; settledUpdateId
     case "settled":
       return (
         <div>
-          <p className="text-lg font-semibold text-green-800">Settled · space booked</p>
-          {settledUpdateId && <p className="mt-1 font-mono text-xs text-slate-600">Update {shortId(settledUpdateId, 14)}</p>}
+          <p className="text-lg font-semibold text-ok">Settled · space booked</p>
+          {settledUpdateId && <p className="mt-1 font-mono text-xs text-muted">Update {shortId(settledUpdateId, 14)}</p>}
         </div>
       );
     case "withdrawn":

@@ -65,7 +65,7 @@ function CampaignDetail() {
   return (
     <>
       <p className="mb-2 text-sm">
-        <Link href="/forwarder" className="font-semibold text-accent hover:underline">
+        <Link href="/forwarder" className="font-semibold text-link hover:underline">
           ← Campaigns
         </Link>
       </p>
@@ -83,7 +83,7 @@ function CampaignDetail() {
         action={
           <a
             href={`/api${path}/export.csv`}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-ink hover:bg-slate-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line-strong bg-panel px-4 text-sm font-semibold text-fg hover:bg-panel-2"
           >
             Export CSV
           </a>
@@ -91,8 +91,8 @@ function CampaignDetail() {
       />
 
       {c.outcome && (
-        <Card className={c.outcome.result === "Succeeded" ? "mb-4 border-green-300 bg-green-50" : "mb-4"}>
-          <h2 className="text-lg font-semibold text-ink">
+        <Card className={c.outcome.result === "Succeeded" ? "mb-4 border-ok/40 bg-ok-soft" : "mb-4"}>
+          <h2 className="text-lg font-semibold text-fg">
             {c.outcome.result === "Succeeded"
               ? "Settled"
               : c.outcome.result === "Failed"
@@ -100,16 +100,16 @@ function CampaignDetail() {
                 : "Cancelled"}
           </h2>
           {c.outcome.result === "Succeeded" && (
-            <p className="mt-1 text-slate-700 tabular">
+            <p className="mt-1 text-muted tabular">
               {c.outcome.legCount} importer{c.outcome.legCount === 1 ? "" : "s"} · {cbm(c.outcome.settled)} CBM · {c.outcome.settledAmount.display} USDCx
             </p>
           )}
           {c.outcome.result === "Failed" && (
-            <p className="mt-1 text-slate-700">Funds released · bond shared</p>
+            <p className="mt-1 text-muted">Funds released · bond shared</p>
           )}
           {c.outcome.updateId && (
             <div className="mt-3 text-sm">
-              <span className="mr-2 font-semibold text-ink">Update ID</span>
+              <span className="mr-2 font-semibold text-fg">Update ID</span>
               <CopyText value={c.outcome.updateId} label="update ID" />
             </div>
           )}
@@ -134,10 +134,10 @@ function CampaignDetail() {
               <Stat label="Threshold" value={`${cbm(t.threshold)} CBM`} />
               <Stat label="Capacity" value={`${cbm(t.capacity)} CBM`} />
             </div>
-            <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">
-              <Legend className="bg-accent" label="Committed" />
-              <Legend className="bg-amber-300" label="Reserved, not yet signed" />
-              <Legend className="bg-ink" label="Threshold" />
+            <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted">
+              <Legend className="bg-ok" label="Committed" />
+              <Legend className="bg-amber" label="Reserved, not yet signed" />
+              <Legend className="bg-fg" label="Threshold" />
             </div>
           </Card>
 
@@ -149,7 +149,7 @@ function CampaignDetail() {
             ) : (
               <div className="-mx-4 overflow-x-auto focus-visible:outline-2 focus-visible:outline-accent sm:mx-0" tabIndex={0} role="region" aria-label="Reservations table (scrolls sideways)">
                 <table className="w-full min-w-[560px] text-left text-sm">
-                  <thead className="border-b border-slate-200 text-slate-600">
+                  <thead className="border-b border-line text-muted">
                     <tr>
                       <th className="px-4 py-2 font-semibold sm:px-2">Importer</th>
                       <th className="px-2 py-2 font-semibold">Stage</th>
@@ -158,12 +158,12 @@ function CampaignDetail() {
                       <th className="px-4 py-2 text-right font-semibold sm:px-2">Bonus</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 tabular">
+                  <tbody className="divide-y divide-line tabular">
                     {c.reservations.map((r) => (
                       <tr key={r.contractId}>
                         <td className="px-4 py-2 sm:px-2">
-                          <span className="font-semibold text-ink">{r.importer.displayName}</span>
-                          <span className="block text-xs text-slate-500">{r.reservationId}</span>
+                          <span className="font-semibold text-fg">{r.importer.displayName}</span>
+                          <span className="block text-xs text-faint">{r.reservationId}</span>
                         </td>
                         <td className="px-2 py-2">
                           <ReservationStageBadge stage={r.stage} />
@@ -185,14 +185,14 @@ function CampaignDetail() {
         <div className="min-w-0 space-y-4">
           <Card title="Settlement">
             {c.outcome ? (
-              <p className="text-sm text-slate-700">Ended</p>
+              <p className="text-sm text-muted">Ended</p>
             ) : (
               <div className="space-y-3">
                 <Button className="w-full" disabled={!c.canExecute} onClick={execute.openSheet}>
                   Settle now
                 </Button>
                 {!c.canExecute && c.executeBlockers.length > 0 && (
-                  <ul className="list-disc space-y-1 pl-5 text-xs text-slate-600">
+                  <ul className="list-disc space-y-1 pl-5 text-xs text-muted">
                     {c.executeBlockers.map((b) => (
                       <li key={b}>{b}</li>
                     ))}
@@ -312,8 +312,8 @@ function CampaignDetail() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-slate-600">{label}</p>
-      <p className="font-semibold text-ink">{value}</p>
+      <p className="label text-faint">{label}</p>
+      <p className="mt-1 font-semibold text-fg">{value}</p>
     </div>
   );
 }
@@ -330,7 +330,7 @@ function Legend({ className, label }: { className: string; label: string }) {
 function TimeValue({ iso }: { iso: string }) {
   return (
     <span>
-      {formatDateTime(iso)} <span className="font-normal text-slate-500">({relativeTime(iso)})</span>
+      {formatDateTime(iso)} <span className="font-normal text-faint">({relativeTime(iso)})</span>
     </span>
   );
 }
@@ -361,14 +361,14 @@ function Invitees({ campaign, onDone }: { campaign: ForwarderCampaignDetail; onD
   return (
     <Card title={`Invited importers (${campaign.invitees.length})`}>
       {campaign.invitees.length === 0 ? (
-        <p className="text-sm text-slate-600">Nobody invited yet. Each importer receives a private invitation; invitees never see each other.</p>
+        <p className="text-sm text-muted">Nobody invited yet. Each importer receives a private invitation; invitees never see each other.</p>
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-line">
           {campaign.invitees.map((i) => (
             <li key={i.party} className="flex items-center justify-between gap-3 py-2 text-sm">
               <span className="min-w-0">
-                <span className="block truncate font-semibold text-ink">{i.displayName}</span>
-                <span className="block truncate text-xs text-slate-500" title={i.party}>
+                <span className="block truncate font-semibold text-fg">{i.displayName}</span>
+                <span className="block truncate text-xs text-faint" title={i.party}>
                   {shortParty(i.party)} · invited {relativeTime(i.invitedAt)}
                 </span>
               </span>
@@ -378,15 +378,15 @@ function Invitees({ campaign, onDone }: { campaign: ForwarderCampaignDetail; onD
         </ul>
       )}
       {canInvite ? (
-        <div className="mt-4 border-t border-slate-100 pt-4">
-          <p className="text-sm font-semibold text-ink">Invite importers</p>
+        <div className="mt-4 border-t border-line pt-4">
+          <p className="text-sm font-semibold text-fg">Invite importers</p>
           {campaign.status === "proposed" && <Notice>Opens once the bond is accepted</Notice>}
           {directory.isPending ? (
-            <p className="mt-2 text-sm text-slate-600">Loading importers…</p>
+            <p className="mt-2 text-sm text-muted">Loading importers…</p>
           ) : directory.isError ? (
             <InlineError error={directory.error} />
           ) : available.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-600">All invited</p>
+            <p className="mt-2 text-sm text-muted">All invited</p>
           ) : (
             <fieldset className="mt-2 grid gap-2 sm:grid-cols-2">
               <legend className="sr-only">Importers to invite</legend>
@@ -396,15 +396,15 @@ function Invitees({ campaign, onDone }: { campaign: ForwarderCampaignDetail; onD
                 return (
                   <label
                     key={p.party}
-                    className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${checked ? "border-accent bg-accent-soft" : "border-slate-200"}`}
+                    className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${checked ? "border-accent bg-accent-soft" : "border-line"}`}
                   >
                     <input
                       type="checkbox"
-                      className="h-4 w-4 accent-[#b45309]"
+                      className="h-4 w-4 accent-[#3b68f0]"
                       checked={checked}
                       onChange={(e) => setSelected((s) => (e.target.checked ? [...s, value] : s.filter((x) => x !== value)))}
                     />
-                    <span className="font-semibold text-ink">{p.displayName}</span>
+                    <span className="font-semibold text-fg">{p.displayName}</span>
                   </label>
                 );
               })}
@@ -419,7 +419,7 @@ function Invitees({ campaign, onDone }: { campaign: ForwarderCampaignDetail; onD
         </div>
       ) : (
         campaign.status === "open" && (
-          <p className="mt-3 text-xs text-slate-600">
+          <p className="mt-3 text-xs text-muted">
             <Badge>Closed</Badge>
           </p>
         )

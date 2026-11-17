@@ -30,7 +30,7 @@ function Invitation() {
   if (!inv)
     return (
       <EmptyState title="Invitation closed">
-        <Link href="/importer" className="font-semibold text-accent hover:underline">
+        <Link href="/importer" className="font-semibold text-link hover:underline">
           Back to my space
         </Link>
       </EmptyState>
@@ -91,7 +91,7 @@ function Reserve({ inv }: { inv: InvitationDto }) {
   return (
     <>
       <p className="mb-2 text-sm">
-        <Link href="/importer" className="font-semibold text-accent hover:underline">
+        <Link href="/importer" className="font-semibold text-link hover:underline">
           ← My space
         </Link>
       </p>
@@ -99,7 +99,7 @@ function Reserve({ inv }: { inv: InvitationDto }) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="min-w-0 space-y-4 lg:col-span-2">
           <Card title="Reserve space">
-            <label htmlFor="cbm" className="text-sm font-semibold text-ink">
+            <label htmlFor="cbm" className="text-sm font-semibold text-fg">
               How much space do you need?
             </label>
             <input
@@ -119,22 +119,22 @@ function Reserve({ inv }: { inv: InvitationDto }) {
               aria-valuetext={bothUnits(milli, locked)}
               disabled={expired}
             />
-            <div className="flex justify-between text-xs text-slate-600 tabular">
+            <div className="flex justify-between text-xs text-muted tabular">
               <span>{cbm(t.minReservation)} CBM</span>
               <span>{cbm(t.maxReservation)} CBM</span>
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:items-end">
               <label className="block">
-                <span className="text-sm font-semibold text-ink">CBM</span>
+                <span className="text-sm font-semibold text-fg">CBM</span>
                 <input className={`${inputClass} mt-1`} inputMode="decimal" value={text} onChange={(e) => onText(e.target.value)} disabled={expired} />
-                {textError && <span className="mt-1 block text-xs font-semibold text-red-800">{textError}</span>}
+                {textError && <span className="mt-1 block text-xs font-semibold text-danger">{textError}</span>}
               </label>
-              <div className="rounded-lg bg-slate-50 px-4 py-3">
-                <p className="text-xs text-slate-600">You lock</p>
-                <p className="text-2xl font-semibold text-ink tabular" aria-live="polite">
+              <div className="rounded-lg bg-panel-2 px-4 py-3">
+                <p className="text-xs text-muted">You lock</p>
+                <p className="text-2xl font-semibold text-fg tabular" aria-live="polite">
                   {formatUsdc(locked)} <span className="text-base">USDCx</span>
                 </p>
-                <p className="text-xs text-slate-600 tabular">{bothUnits(milli, locked)}</p>
+                <p className="text-xs text-muted tabular">{bothUnits(milli, locked)}</p>
               </div>
             </div>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -145,7 +145,7 @@ function Reserve({ inv }: { inv: InvitationDto }) {
                 Decline
               </Button>
             </div>
-            {expired && <p className="mt-2 text-sm font-semibold text-red-800">Expired</p>}
+            {expired && <p className="mt-2 text-sm font-semibold text-danger">Expired</p>}
           </Card>
         </div>
         <Card title="Terms">

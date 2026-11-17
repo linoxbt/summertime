@@ -50,8 +50,8 @@ export default function LoginPage() {
   return (
     <PublicPage>
       <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14">
-        <h1 className="text-3xl font-semibold tracking-tight text-ink">Sign in to the demo</h1>
-        <p className="mt-2 text-slate-700">Pick an account · test USDCx only</p>
+        <h1 className="text-4xl font-semibold tracking-tight text-fg">Sign in to the demo</h1>
+        <p className="mt-2 text-muted">Pick an account · test USDCx only</p>
         <div className="mt-6">
           <InlineError error={error} />
         </div>
@@ -69,8 +69,11 @@ export default function LoginPage() {
                 if (list.length === 0) return null;
                 return (
                   <section key={role}>
-                    <h2 className="text-lg font-semibold text-ink">{ROLE_COPY[role].title}</h2>
-                    <p className="text-sm text-slate-600">{ROLE_COPY[role].body}</p>
+                    <h2 className="label flex items-center gap-3 text-fg">
+                      <span className="h-2 w-2 rounded-[2px] bg-amber" aria-hidden="true" />
+                      {ROLE_COPY[role].title}
+                      <span className="text-faint">· {ROLE_COPY[role].body}</span>
+                    </h2>
                     <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {list.map((a) => (
                         <li key={a.handle}>
@@ -78,16 +81,16 @@ export default function LoginPage() {
                             type="button"
                             onClick={() => signIn(a.handle)}
                             disabled={pending !== null}
-                            className="flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left hover:border-accent disabled:opacity-60"
+                            className="flex min-h-16 w-full items-center justify-between gap-3 rounded-lg border border-line bg-panel/70 px-4 py-3 text-left hover:border-link disabled:opacity-60"
                           >
                             <span>
-                              <span className="block font-semibold text-ink">{a.displayName}</span>
-                              <span className="block text-xs text-slate-600">@{a.handle}</span>
+                              <span className="block font-semibold text-fg">{a.displayName}</span>
+                              <span className="block text-xs text-muted">@{a.handle}</span>
                             </span>
                             {pending === a.handle ? (
                               <Spinner />
                             ) : (
-                              <span aria-hidden="true" className="text-accent">
+                              <span aria-hidden="true" className="text-link">
                                 →
                               </span>
                             )}

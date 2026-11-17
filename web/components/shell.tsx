@@ -76,14 +76,14 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
   const nav = user ? NAV[user.role] : [];
   return (
     <div className="min-h-screen">
-      <div className="bg-ink px-4 py-1.5 text-center text-xs font-medium text-amber-200">
-        Demo · test USDCx
-      </div>
-      <header className="border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-40 border-b border-line bg-page/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <Link href={user ? (nav[0]?.href ?? "/") : "/"} className="flex items-center gap-2" aria-label="Summertime home">
-            <Logo />
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href={user ? (nav[0]?.href ?? "/") : "/"} className="flex items-center gap-2" aria-label="Summertime home">
+              <Logo />
+            </Link>
+            <DemoChip />
+          </div>
           {user && (
             <>
               <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
@@ -95,8 +95,8 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
               </nav>
               <div className="hidden items-center gap-3 md:flex">
                 <span className="text-right text-xs leading-tight">
-                  <span className="block font-semibold text-ink">{user.displayName}</span>
-                  <span className="capitalize text-slate-600">{user.role}</span>
+                  <span className="block font-semibold text-fg">{user.displayName}</span>
+                  <span className="capitalize text-muted">{user.role}</span>
                 </span>
                 <Button variant="secondary" onClick={signOut} className="min-h-9 px-3 py-1.5">
                   Sign out
@@ -104,7 +104,7 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
               </div>
               <button
                 type="button"
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-300 md:hidden"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-line-strong md:hidden"
                 aria-expanded={menuOpen}
                 aria-controls="mobile-nav"
                 onClick={() => setMenuOpen((o) => !o)}
@@ -118,28 +118,38 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
           )}
         </div>
         {user && menuOpen && (
-          <nav id="mobile-nav" className="border-t border-slate-200 px-4 py-2 md:hidden" aria-label="Main">
-            <p className="py-2 text-xs text-slate-600">
-              Signed in as <span className="font-semibold text-ink">{user.displayName}</span> ({user.role})
+          <nav id="mobile-nav" className="border-t border-line px-4 py-2 md:hidden" aria-label="Main">
+            <p className="py-2 text-xs text-muted">
+              Signed in as <span className="font-semibold text-fg">{user.displayName}</span> ({user.role})
             </p>
             {nav.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}
                 onClick={() => setMenuOpen(false)}
-                className={cx("block rounded-lg px-3 py-3 text-sm font-semibold", isActive(pathname, n.href) ? "bg-slate-100 text-ink" : "text-slate-700")}
+                className={cx("block rounded-lg px-3 py-3 text-sm font-semibold", isActive(pathname, n.href) ? "bg-panel-2 text-fg" : "text-muted")}
               >
                 {n.label}
               </Link>
             ))}
-            <button type="button" onClick={signOut} className="block w-full rounded-lg px-3 py-3 text-left text-sm font-semibold text-slate-700">
+            <button type="button" onClick={signOut} className="block w-full rounded-lg px-3 py-3 text-left text-sm font-semibold text-muted">
               Sign out
             </button>
           </nav>
         )}
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>
+  );
+}
+
+/** Demo environment marker (test USDCx only). */
+export function DemoChip() {
+  return (
+    <span className="label hidden items-center gap-2 rounded border border-line-strong px-2 py-1 text-muted sm:inline-flex">
+      <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden="true" />
+      Demo · test USDCx
+    </span>
   );
 }
 
@@ -153,7 +163,7 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={cx("rounded-lg px-3 py-2 text-sm font-semibold", active ? "bg-slate-100 text-ink" : "text-slate-600 hover:text-ink")}
+      className={cx("rounded-md px-3 py-2 text-sm font-medium", active ? "bg-panel-2 text-fg" : "text-muted hover:text-fg")}
     >
       {children}
     </Link>

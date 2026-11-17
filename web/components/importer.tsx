@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { BalanceDto, ProgressDto, ReceiptDto } from "@summertime/ledger";
+import type { BalanceDto, PositionDto, ProgressDto, ReceiptDto } from "@summertime/ledger";
+import { PositionStageBadge } from "./status";
 import { api, newIdempotencyKey } from "@/lib/api";
 import { formatDateTime, percent, cbm } from "@/lib/format";
 import { Badge, Button, CopyText, EmptyState, ErrorState, InlineError, LoadingState } from "./ui";
@@ -26,15 +27,15 @@ export function BalanceChip({ showFaucet = true }: { showFaucet?: boolean }) {
   }
   return (
     <div className="flex flex-col items-start gap-2 sm:items-end">
-      <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm tabular">
+      <div className="rounded-xl border border-line bg-panel px-4 py-2 text-sm tabular">
         {q.isPending ? (
-          <span className="text-slate-600">Loading balance…</span>
+          <span className="text-muted">Loading balance…</span>
         ) : q.isError ? (
-          <span className="text-red-800">Balance unavailable</span>
+          <span className="text-danger">Balance unavailable</span>
         ) : (
           <>
-            <span className="font-semibold text-ink">{q.data.available.display}</span> {q.data.instrument} available
-            {q.data.locked.micro !== "0" && <span className="text-slate-600"> · {q.data.locked.display} locked</span>}
+            <span className="font-semibold text-fg">{q.data.available.display}</span> {q.data.instrument} available
+            {q.data.locked.micro !== "0" && <span className="text-muted"> · {q.data.locked.display} locked</span>}
           </>
         )}
       </div>
@@ -51,7 +52,7 @@ export function BalanceChip({ showFaucet = true }: { showFaucet?: boolean }) {
 export function ProgressPanel({ progress }: { progress: ProgressDto | undefined }) {
   if (!progress || progress.hidden) {
     return (
-      <p className="text-sm text-slate-600">Hidden until 3 importers commit</p>
+      <p className="text-sm text-muted">Hidden until 3 importers commit</p>
     );
   }
   const filled = percent(progress.reservedCbm, progress.capacityCbm);
@@ -59,7 +60,7 @@ export function ProgressPanel({ progress }: { progress: ProgressDto | undefined 
   return (
     <div>
       <div
-        className="relative h-3 overflow-hidden rounded-full bg-slate-200"
+        className="relative h-3 overflow-hidden rounded-full bg-line-strong"
         role="meter"
         aria-label="Container progress"
         aria-valuemin={0}
@@ -67,15 +68,15 @@ export function ProgressPanel({ progress }: { progress: ProgressDto | undefined 
         aria-valuenow={progress.reservedCbm}
       >
         <div className="absolute inset-y-0 left-0 bg-accent" style={{ width: `${filled}%` }} />
-        {thr < 100 && <div className="absolute inset-y-0 w-0.5 bg-ink" style={{ left: `calc(${thr}% - 1px)` }} />}
+        {thr < 100 && <div className="absolute inset-y-0 w-0.5 bg-panel-2" style={{ left: `calc(${thr}% - 1px)` }} />}
       </div>
       <p className="mt-2 text-sm tabular">
-        <span className="font-semibold text-ink">
+        <span className="font-semibold text-fg">
           {progress.reservedCbm} of {progress.capacityCbm} CBM
         </span>{" "}
         committed{progress.participantCount !== null ? ` by ${progress.participantCount} importers` : ""} · threshold {progress.thresholdCbm} CBM
       </p>
-      <p className="mt-1 text-xs text-slate-600">As of {formatDateTime(progress.asOf)}</p>
+      <p className="mt-1 text-xs text-muted">As of {formatDateTime(progress.asOf)}</p>
     </div>
   );
 }
@@ -88,21 +89,21 @@ const RECEIPT_LABEL: Record<ReceiptDto["kind"], { label: string; tone: "success"
 };
 
 export function ReceiptList({ receipts }: { receipts: ReceiptDto[] }) {
-  if (receipts.length === 0) return <p className="text-sm text-slate-600">No receipts yet.</p>;
+  if (receipts.length === 0) return <p className="text-sm text-muted">No receipts yet.</p>;
   return (
-    <ul className="divide-y divide-slate-100">
+    <ul className="divide-y divide-line">
       {receipts.map((r) => (
         <li key={r.contractId} className="py-3 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Badge tone={RECEIPT_LABEL[r.kind].tone}>{RECEIPT_LABEL[r.kind].label}</Badge>
-            <span className="text-xs text-slate-600">{formatDateTime(r.createdAt)}</span>
+            <span className="text-xs text-muted">{formatDateTime(r.createdAt)}</span>
           </div>
-          <p className="mt-1 font-semibold text-ink tabular">
+          <p className="mt-1 font-semibold text-fg tabular">
             {r.kind === "BonusPaid" ? `${r.amount.display} USDCx` : `${cbm(r.reserved)} CBM · ${r.amount.display} USDCx`}
           </p>
           {r.updateId && (
             <p className="mt-1 text-xs">
-              <span className="mr-1 text-slate-600">Update ID</span>
+              <span className="mr-1 text-muted">Update ID</span>
               <CopyText value={r.updateId} label="update ID" />
             </p>
           )}
@@ -119,4 +120,47 @@ export function ReceiptsQuery() {
   if (q.data.length === 0)
     return <EmptyState title="No receipts yet" />;
   return <ReceiptList receipts={q.data} />;
+}
+
+/** The importer's position as a container booking slip: route, space, amount, status. */
+export function PositionSlip({ pos, status, children }: { pos: PositionDto; status: ReactNode; children?: ReactNode }) {
+  const [from, to] = (pos.route ?? "").split(/\s*(?:→|->)\s*/);
+  return (
+    <section className="overflow-hidden rounded-lg border border-line-strong bg-gradient-to-b from-[#14214f] to-[#0b1433]">
+      <div className="flex items-center justify-between px-5 pt-4">
+        <span className="label text-muted">Container booking</span>
+        <PositionStageBadge stage={pos.stage} />
+      </div>
+      <div className="flex items-end justify-between gap-3 px-5 pt-4">
+        <div className="min-w-0">
+          <p className="label text-faint">From</p>
+          <p className="text-xl font-semibold leading-tight tracking-tight text-fg [overflow-wrap:anywhere] sm:text-3xl">{from || "Origin"}</p>
+        </div>
+        <span className="mb-3 h-px min-w-6 flex-1 border-t border-dashed border-amber/60" aria-hidden="true" />
+        <div className="min-w-0 text-right">
+          <p className="label text-faint">To</p>
+          <p className="text-xl font-semibold leading-tight tracking-tight text-fg [overflow-wrap:anywhere] sm:text-3xl">{to || "Destination"}</p>
+        </div>
+      </div>
+      <div className="mx-5 my-4 border-t border-dashed border-line-strong" />
+      <dl className="grid grid-cols-2 gap-4 px-5 sm:grid-cols-3">
+        <div>
+          <dt className="label text-faint">Space</dt>
+          <dd className="mt-1 text-lg font-semibold text-fg tabular">{pos.reserved && pos.reserved.milliCbm !== "0" ? `${cbm(pos.reserved)} CBM` : "—"}</dd>
+        </div>
+        <div>
+          <dt className="label text-faint">Amount</dt>
+          <dd className="mt-1 text-lg font-semibold text-fg tabular">{pos.locked && pos.locked.micro !== "0" ? `${pos.locked.display} USDCx` : "—"}</dd>
+        </div>
+        <div className="col-span-2 sm:col-span-1">
+          <dt className="label text-faint">Forwarder</dt>
+          <dd className="mt-1 truncate text-lg font-semibold text-fg">{pos.forwarder.displayName}</dd>
+        </div>
+      </dl>
+      <div className="mt-4 border-t border-line bg-page/40 px-5 py-4">
+        {status}
+        {children}
+      </div>
+    </section>
+  );
 }

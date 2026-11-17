@@ -30,7 +30,7 @@ function CampaignList() {
         action={
           <Link
             href="/forwarder/new"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong"
           >
             New campaign
           </Link>
@@ -42,51 +42,66 @@ function CampaignList() {
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       ) : q.data.length === 0 ? (
         <EmptyState title="No campaigns yet">
-          <Link href="/forwarder/new" className="font-semibold text-accent hover:underline">
-            Open your first campaign
-          </Link>{" "}
-          to start collecting private reservations.
+          <Link href="/forwarder/new" className="font-semibold text-link hover:underline">
+            New campaign
+          </Link>
         </EmptyState>
       ) : (
-        <ul className="grid gap-3">
-          {q.data.map((c) => (
-            <li key={c.campaignId}>
-              <Link
-                href={`/forwarder/campaigns/${encodeURIComponent(c.campaignId)}`}
-                className="block rounded-xl border border-slate-200 bg-white p-4 hover:border-accent sm:p-5"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-ink">{c.title}</p>
-                    <p className="text-sm text-slate-600">{c.route ?? "Route not set"}</p>
-                  </div>
-                  <CampaignStatusBadge status={c.status} />
-                </div>
-                <div className="mt-4">
-                  <CapacityBar
-                    label={`${cbm(c.committed)} of ${cbm(c.terms.capacity)} CBM committed`}
-                    committed={Number(c.committed.milliCbm)}
-                    held={Number(c.held.milliCbm)}
-                    threshold={Number(c.terms.threshold.milliCbm)}
-                    capacity={Number(c.terms.capacity.milliCbm)}
-                  />
-                  <div className="mt-2 flex flex-wrap justify-between gap-2 text-sm tabular">
-                    <span>
-                      <span className="font-semibold text-ink">{cbm(c.committed)}</span> of {cbm(c.terms.capacity)} CBM committed · {c.committedCount} importer
-                      {c.committedCount === 1 ? "" : "s"}
+        <div className="overflow-hidden rounded-lg border border-line bg-[#070c20]">
+          <div className="flex items-center justify-between border-b border-line px-4 py-3">
+            <span className="label flex items-center gap-3 text-fg">
+              <span className="h-2 w-2 rounded-[2px] bg-amber" aria-hidden="true" />
+              Your sailings
+            </span>
+            <span className="label text-faint">{q.data.length} campaign{q.data.length === 1 ? "" : "s"}</span>
+          </div>
+          <div className="label hidden grid-cols-[1.6fr_1.4fr_0.7fr_1.1fr_0.9fr] gap-4 border-b border-line px-4 py-2 text-faint md:grid">
+            <span>Campaign</span>
+            <span>Filled</span>
+            <span>Importers</span>
+            <span>Deadline</span>
+            <span className="text-right">Status</span>
+          </div>
+          <ul className="divide-y divide-line">
+            {q.data.map((c) => (
+              <li key={c.campaignId}>
+                <Link
+                  href={`/forwarder/campaigns/${encodeURIComponent(c.campaignId)}`}
+                  className="grid gap-3 px-4 py-4 hover:bg-panel/60 md:grid-cols-[1.6fr_1.4fr_0.7fr_1.1fr_0.9fr] md:items-center md:gap-4"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold text-fg">{c.title}</span>
+                    <span className="label block truncate text-faint">{c.route ?? c.campaignId}</span>
+                  </span>
+                  <span>
+                    <CapacityBar
+                      label={`${cbm(c.committed)} of ${cbm(c.terms.capacity)} CBM committed`}
+                      committed={Number(c.committed.milliCbm)}
+                      held={Number(c.held.milliCbm)}
+                      threshold={Number(c.terms.threshold.milliCbm)}
+                      capacity={Number(c.terms.capacity.milliCbm)}
+                    />
+                    <span className="mt-1.5 block text-sm text-fg tabular">
+                      {cbm(c.committed)} <span className="text-faint">/ {cbm(c.terms.capacity)} CBM</span>
                     </span>
-                    <span className="text-slate-600">
-                      Threshold {cbm(c.terms.threshold)} CBM{c.thresholdMet ? " · met" : ""}
-                    </span>
-                  </div>
-                </div>
-                <p className="mt-3 text-xs text-slate-600">
-                  Deadline {formatDateTime(c.terms.deadline)} ({relativeTime(c.terms.deadline)})
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                  </span>
+                  <span className="text-sm text-fg tabular">
+                    <span className="label mr-2 text-faint md:hidden">Importers</span>
+                    {c.committedCount}
+                  </span>
+                  <span className="text-sm text-muted">
+                    <span className="label mr-2 text-faint md:hidden">Deadline</span>
+                    {formatDateTime(c.terms.deadline)}
+                    <span className="block text-xs text-faint">{relativeTime(c.terms.deadline)}</span>
+                  </span>
+                  <span className="md:text-right">
+                    <CampaignStatusBadge status={c.status} />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </>
   );

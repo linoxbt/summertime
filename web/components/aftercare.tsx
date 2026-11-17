@@ -17,34 +17,34 @@ function formatEtd(date: string): string {
 function BookingSummary({ b }: { b: BookingDto }) {
   return (
     <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm tabular">
-      <dt className="text-slate-600">Booking reference</dt>
-      <dd className="font-semibold text-ink">{b.bookingRef}</dd>
-      <dt className="text-slate-600">Estimated departure</dt>
-      <dd className="font-semibold text-ink">{formatEtd(b.etd)}</dd>
-      <dt className="text-slate-600">Container</dt>
-      <dd className="font-semibold text-ink">{b.containerNo ?? "To be assigned"}</dd>
+      <dt className="text-muted">Booking reference</dt>
+      <dd className="font-semibold text-fg">{b.bookingRef}</dd>
+      <dt className="text-muted">Estimated departure</dt>
+      <dd className="font-semibold text-fg">{formatEtd(b.etd)}</dd>
+      <dt className="text-muted">Container</dt>
+      <dd className="font-semibold text-fg">{b.containerNo ?? "To be assigned"}</dd>
     </dl>
   );
 }
 
 function DisputeItem({ d, children }: { d: DisputeDto; children?: React.ReactNode }) {
   return (
-    <li className="rounded-lg border border-slate-200 p-3">
+    <li className="rounded-lg border border-line p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-semibold text-ink">{d.subject}</p>
+        <p className="font-semibold text-fg">{d.subject}</p>
         {d.status === "open" ? <Badge tone="accent">Open</Badge> : <Badge tone="success">Resolved</Badge>}
       </div>
-      <p className="mt-1 text-xs text-slate-600">
+      <p className="mt-1 text-xs text-muted">
         {d.importer.displayName} · opened {formatDateTime(d.openedAt)}
       </p>
-      {d.details && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{d.details.replace(/\n\n— .*$/, "")}</p>}
-      <p className="mt-2 font-mono text-xs text-slate-500" title="SHA-256 of the details, recorded on the ledger">
+      {d.details && <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{d.details.replace(/\n\n— .*$/, "")}</p>}
+      <p className="mt-2 font-mono text-xs text-faint" title="SHA-256 of the details, recorded on the ledger">
         {d.evidenceHash.slice(0, 16)}… {d.evidenceVerified ? "✓ verified" : "unverified"}
       </p>
       {d.resolution && (
-        <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm">
-          <p className="font-semibold text-ink">Resolution · {formatDateTime(d.resolvedAt)}</p>
-          <p className="mt-1 whitespace-pre-wrap text-slate-700">{d.resolution}</p>
+        <div className="mt-3 rounded-md bg-panel-2 p-3 text-sm">
+          <p className="font-semibold text-fg">Resolution · {formatDateTime(d.resolvedAt)}</p>
+          <p className="mt-1 whitespace-pre-wrap text-muted">{d.resolution}</p>
         </div>
       )}
       {children}
@@ -82,10 +82,10 @@ export function ForwarderAftercare({ campaign, onDone }: { campaign: ForwarderCa
         {campaign.bookings.length > 0 && (
           <ul className="mb-4 space-y-2">
             {campaign.bookings.map((b) => (
-              <li key={b.contractId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <li key={b.contractId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-sm">
                 <span>
-                  <span className="font-semibold text-ink">{b.importer.displayName}</span>
-                  <span className="block text-xs text-slate-600">
+                  <span className="font-semibold text-fg">{b.importer.displayName}</span>
+                  <span className="block text-xs text-muted">
                     {b.bookingRef} · ETD {formatEtd(b.etd)}
                     {b.containerNo ? ` · ${b.containerNo}` : ""}
                   </span>
@@ -119,7 +119,7 @@ export function ForwarderAftercare({ campaign, onDone }: { campaign: ForwarderCa
             </Button>
           </form>
         ) : (
-          <p className="text-sm text-slate-700">All booked</p>
+          <p className="text-sm text-muted">All booked</p>
         )}
       </Card>
 
@@ -210,7 +210,7 @@ export function ImporterAftercare({ pos, onDone }: { pos: PositionDto; onDone: (
           <>
             <BookingSummary b={b} />
             {b.acknowledgedAt ? (
-              <p className="mt-3 text-sm text-slate-700">Acknowledged · {formatDateTime(b.acknowledgedAt)}</p>
+              <p className="mt-3 text-sm text-muted">Acknowledged · {formatDateTime(b.acknowledgedAt)}</p>
             ) : (
               <Button className="mt-3" onClick={ack.openSheet}>
                 Acknowledge booking
@@ -218,7 +218,7 @@ export function ImporterAftercare({ pos, onDone }: { pos: PositionDto; onDone: (
             )}
           </>
         ) : (
-          <p className="text-sm text-slate-700">Awaiting booking</p>
+          <p className="text-sm text-muted">Awaiting booking</p>
         )}
       </Card>
 
@@ -260,7 +260,7 @@ export function ImporterAftercare({ pos, onDone }: { pos: PositionDto; onDone: (
               Report a problem
             </Button>
           ))}
-        {!pos.actions.canDispute && pos.disputes.length === 0 && <p className="text-sm text-slate-700">None</p>}
+        {!pos.actions.canDispute && pos.disputes.length === 0 && <p className="text-sm text-muted">None</p>}
       </Card>
 
       <ConfirmSheet

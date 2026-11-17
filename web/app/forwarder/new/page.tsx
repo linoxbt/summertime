@@ -199,7 +199,7 @@ function NewCampaign() {
                 <button
                   type="button"
                   key={p.label}
-                  className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-accent"
+                  className="rounded-full border border-line-strong bg-panel px-3 py-1.5 text-xs font-semibold text-muted hover:border-accent"
                   onClick={() => {
                     const now = Date.now();
                     setF((s) => ({ ...s, lockTime: toLocalInput(new Date(now + p.lock)), deadline: toLocalInput(new Date(now + p.deadline)) }));
@@ -236,7 +236,7 @@ function NewCampaign() {
               <Button type="submit" className="w-full" busy={submitting} disabled={!v.ok}>
                 Propose campaign
               </Button>
-              {!v.ok && <p className="text-xs text-slate-600">Fix the highlighted fields to continue.</p>}
+              {!v.ok && <p className="text-xs text-muted">Fix the highlighted fields to continue.</p>}
             </div>
           </Card>
         </div>
@@ -248,8 +248,8 @@ function NewCampaign() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="text-slate-600">{label}</dt>
-      <dd className="font-semibold text-ink">{value}</dd>
+      <dt className="text-muted">{label}</dt>
+      <dd className="font-semibold text-fg">{value}</dd>
     </div>
   );
 }

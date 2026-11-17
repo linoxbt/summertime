@@ -7,25 +7,31 @@ export const PRIVACY_PROMISE =
 
 export function PublicHeader() {
   return (
-    <header className="border-b border-slate-200 bg-white">
+    <header className="sticky top-0 z-40 border-b border-line bg-page/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
         <Link href="/" aria-label="Summertime home">
           <Logo />
         </Link>
-        <nav className="flex items-center gap-1 text-sm font-semibold" aria-label="Main">
-          <Link href="/#how-it-works" className="hidden rounded-lg px-3 py-2 text-slate-600 hover:text-ink sm:block">
+        <nav className="hidden items-center gap-6 text-sm text-muted md:flex" aria-label="Sections">
+          <Link href="/#how-it-works" className="hover:text-fg">
             How it works
           </Link>
-          <Link href="/#why-canton" className="hidden rounded-lg px-3 py-2 text-slate-600 hover:text-ink sm:block">
-            Why Canton
-          </Link>
-          <Link href="/privacy" className="rounded-lg px-3 py-2 text-slate-600 hover:text-ink">
+          <Link href="/#privacy" className="hover:text-fg">
             Privacy
           </Link>
-          <Link href="/login" className="ml-1 inline-flex min-h-11 items-center rounded-lg bg-accent px-4 text-white hover:bg-accent-strong">
-            Sign in
+          <Link href="/#why-canton" className="hover:text-fg">
+            Why Canton
           </Link>
         </nav>
+        <div className="flex items-center gap-3">
+          <span className="label hidden items-center gap-2 rounded border border-line-strong px-2 py-1 text-muted lg:inline-flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden="true" />
+            Demo open
+          </span>
+          <Link href="/login" className="inline-flex min-h-10 items-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong">
+            Sign in <span aria-hidden="true">→</span>
+          </Link>
+        </div>
       </div>
     </header>
   );
@@ -33,23 +39,20 @@ export function PublicHeader() {
 
 export function PublicFooter() {
   return (
-    <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+    <footer className="border-t border-line">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 text-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Logo />
-          <p className="mt-2">Commit together. Settle together.</p>
+          <p className="label mt-3 text-faint">Commit together · Settle together</p>
         </div>
-        <div className="space-y-1 sm:text-right">
-          <p>Unaudited · Built on Canton</p>
-          <p>
-            <Link href="/privacy" className="font-semibold text-accent hover:underline">
-              Privacy
-            </Link>{" "}
-            ·{" "}
-            <a href="https://github.com/linoxbt/summertime" className="font-semibold text-accent hover:underline">
-              Source
-            </a>
-          </p>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-muted">
+          <Link href="/privacy" className="hover:text-fg">
+            Privacy
+          </Link>
+          <a href="https://github.com/linoxbt/summertime" className="hover:text-fg">
+            Source
+          </a>
+          <span className="label text-faint">Unaudited · Canton</span>
         </div>
       </div>
     </footer>
@@ -58,7 +61,7 @@ export function PublicFooter() {
 
 export function PublicPage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex min-h-screen flex-col">
       <PublicHeader />
       <main className="flex-1">{children}</main>
       <PublicFooter />
@@ -68,10 +71,10 @@ export function PublicPage({ children }: { children: ReactNode }) {
 
 export function Section({ id, eyebrow, title, children, tinted }: { id?: string; eyebrow: string; title: string; children: ReactNode; tinted?: boolean }) {
   return (
-    <section id={id} className={tinted ? "bg-slate-50" : "bg-white"}>
+    <section id={id} className={tinted ? "bg-panel-2" : "bg-panel"}>
       <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
-        <p className="text-sm font-semibold uppercase tracking-wider text-accent">{eyebrow}</p>
-        <h2 className="mt-2 max-w-3xl text-3xl font-semibold tracking-tight text-ink sm:text-4xl">{title}</h2>
+        <p className="text-sm font-semibold uppercase tracking-wider text-link">{eyebrow}</p>
+        <h2 className="mt-2 max-w-3xl text-3xl font-semibold tracking-tight text-fg sm:text-4xl">{title}</h2>
         <div className="mt-8">{children}</div>
       </div>
     </section>
@@ -85,19 +88,19 @@ export function TrustTable() {
     { party: "Summertime", can: "Co-sign campaigns; hold and pay the bond", cannot: "Move importer funds; settle alone" },
   ];
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 focus-visible:outline-2 focus-visible:outline-accent" tabIndex={0} role="region" aria-label="Trust model table (scrolls sideways)">
+    <div className="overflow-x-auto rounded-xl border border-line focus-visible:outline-2 focus-visible:outline-accent" tabIndex={0} role="region" aria-label="Trust model table (scrolls sideways)">
       <table className="w-full min-w-[520px] text-left text-sm">
-        <thead className="bg-slate-50 text-ink">
+        <thead className="bg-panel-2 text-fg">
           <tr>
             <th className="px-4 py-3 font-semibold">Party</th>
             <th className="px-4 py-3 font-semibold">Can</th>
             <th className="px-4 py-3 font-semibold">Cannot</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200">
+        <tbody className="divide-y divide-line">
           {rows.map((r) => (
             <tr key={r.party} className="align-top">
-              <td className="px-4 py-3 font-semibold text-ink">{r.party}</td>
+              <td className="px-4 py-3 font-semibold text-fg">{r.party}</td>
               <td className="px-4 py-3">{r.can}</td>
               <td className="px-4 py-3">{r.cannot}</td>
             </tr>

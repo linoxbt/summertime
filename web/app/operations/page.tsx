@@ -54,13 +54,13 @@ function Operations() {
             {s.checks.length === 0 ? (
               <EmptyState title="No checks yet" />
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-line">
                 {s.checks.map((c) => (
                   <li key={c.name} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                     <div className="min-w-0">
-                      <p className="font-semibold text-ink">{LABELS[c.name] ?? c.name}</p>
-                      <p className="text-sm text-slate-700">{c.summary}</p>
-                      <p className="text-xs text-slate-600">Checked {relativeTime(c.checkedAt)}</p>
+                      <p className="font-semibold text-fg">{LABELS[c.name] ?? c.name}</p>
+                      <p className="text-sm text-muted">{c.summary}</p>
+                      <p className="text-xs text-muted">Checked {relativeTime(c.checkedAt)}</p>
                     </div>
                     <StatusBadge status={c.status} />
                   </li>
@@ -73,16 +73,16 @@ function Operations() {
             {s.alerts.length === 0 ? (
               <EmptyState title="No alerts" />
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-line">
                 {s.alerts.map((a) => (
                   <li key={a.id} className="py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge status={a.severity} />
-                      <span className="font-semibold text-ink">{LABELS[a.name] ?? a.name}</span>
+                      <span className="font-semibold text-fg">{LABELS[a.name] ?? a.name}</span>
                       {a.resolvedAt ? <Badge>Resolved</Badge> : <Badge tone="danger">Open</Badge>}
                     </div>
-                    <p className="mt-1 text-sm text-slate-700">{a.summary}</p>
-                    <p className="text-xs text-slate-600">
+                    <p className="mt-1 text-sm text-muted">{a.summary}</p>
+                    <p className="text-xs text-muted">
                       Raised {formatDateTime(a.raisedAt)}
                       {a.resolvedAt ? ` · resolved ${formatDateTime(a.resolvedAt)}` : ""}
                     </p>
@@ -96,26 +96,26 @@ function Operations() {
         <div className="space-y-4">
           <Card title="Worker">
             <dl className="grid grid-cols-2 gap-y-2 text-sm tabular">
-              <dt className="text-slate-600">Status</dt>
+              <dt className="text-muted">Status</dt>
               <dd>
                 <StatusBadge status={s.worker.status} />
               </dd>
-              <dt className="text-slate-600">Last pass</dt>
-              <dd className="font-semibold text-ink">{s.worker.lastPassAt ? relativeTime(s.worker.lastPassAt) : "never"}</dd>
-              <dt className="text-slate-600">Ledger end</dt>
-              <dd className="font-semibold text-ink">{s.worker.ledgerEnd ?? "unreachable"}</dd>
-              <dt className="text-slate-600">Processed offset</dt>
-              <dd className="font-semibold text-ink">{s.worker.offset ?? "—"}</dd>
-              <dt className="text-slate-600">Lag</dt>
-              <dd className="font-semibold text-ink">{lag === null ? "—" : `${lag} offset${lag === 1 ? "" : "s"}`}</dd>
+              <dt className="text-muted">Last pass</dt>
+              <dd className="font-semibold text-fg">{s.worker.lastPassAt ? relativeTime(s.worker.lastPassAt) : "never"}</dd>
+              <dt className="text-muted">Ledger end</dt>
+              <dd className="font-semibold text-fg">{s.worker.ledgerEnd ?? "unreachable"}</dd>
+              <dt className="text-muted">Processed offset</dt>
+              <dd className="font-semibold text-fg">{s.worker.offset ?? "—"}</dd>
+              <dt className="text-muted">Lag</dt>
+              <dd className="font-semibold text-fg">{lag === null ? "—" : `${lag} offset${lag === 1 ? "" : "s"}`}</dd>
             </dl>
           </Card>
           <Card title="Commands (24 hours)">
             <dl className="grid grid-cols-2 gap-y-2 text-sm tabular">
-              <dt className="text-slate-600">Submitted</dt>
-              <dd className="font-semibold text-ink">{s.commands.last24h}</dd>
-              <dt className="text-slate-600">Rejected</dt>
-              <dd className="font-semibold text-ink">{s.commands.failed24h}</dd>
+              <dt className="text-muted">Submitted</dt>
+              <dd className="font-semibold text-fg">{s.commands.last24h}</dd>
+              <dt className="text-muted">Rejected</dt>
+              <dd className="font-semibold text-fg">{s.commands.failed24h}</dd>
             </dl>
           </Card>
         </div>

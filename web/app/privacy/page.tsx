@@ -6,8 +6,8 @@ export const metadata: Metadata = { title: "Privacy and trust model" };
 function Block({ title, items }: { title: string; items: string[] }) {
   return (
     <>
-      <h2 className="mt-10 text-xl font-semibold text-ink">{title}</h2>
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
+      <h2 className="mt-10 text-xl font-semibold text-fg">{title}</h2>
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">
         {items.map((i) => (
           <li key={i}>{i}</li>
         ))}
@@ -20,10 +20,10 @@ export default function PrivacyPage() {
   return (
     <PublicPage>
       <article className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
-        <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">Privacy and trust</h1>
-        <blockquote className="mt-6 border-l-4 border-accent pl-5 text-lg font-medium text-ink">&ldquo;{PRIVACY_PROMISE}&rdquo;</blockquote>
+        <h1 className="text-3xl font-semibold tracking-tight text-fg sm:text-4xl">Privacy and trust</h1>
+        <blockquote className="mt-6 border-l-4 border-accent pl-5 text-lg font-medium text-fg">&ldquo;{PRIVACY_PROMISE}&rdquo;</blockquote>
 
-        <h2 className="mt-10 text-xl font-semibold text-ink">Who can do what</h2>
+        <h2 className="mt-10 text-xl font-semibold text-fg">Who can do what</h2>
         <div className="mt-4">
           <TrustTable />
         </div>
