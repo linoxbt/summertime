@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { DemoStatus } from "./demo-status";
 import { Logo } from "./logo";
 
 export const PRIVACY_PROMISE =
@@ -24,10 +25,7 @@ export function PublicHeader() {
           </Link>
         </nav>
         <div className="flex items-center gap-3">
-          <span className="label hidden items-center gap-2 rounded border border-line-strong px-2 py-1 text-muted lg:inline-flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden="true" />
-            Demo open
-          </span>
+          <DemoStatus />
           <Link href="/login" className="inline-flex min-h-10 items-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong">
             Sign in <span aria-hidden="true">→</span>
           </Link>

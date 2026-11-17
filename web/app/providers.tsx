@@ -13,7 +13,9 @@ export function Providers({ children }: { children: ReactNode }) {
             staleTime: 1000,
             refetchOnWindowFocus: true,
             // Never retry auth or validation failures; retry transient ones briefly.
-            retry: (count, err) => !(err instanceof ApiError && err.status >= 400 && err.status < 500) && count < 2,
+            // A deployment with no backend answers BACKEND_OFFLINE: show that at once.
+            retry: (count, err) =>
+              !(err instanceof ApiError && ((err.status >= 400 && err.status < 500) || err.code === "BACKEND_OFFLINE")) && count < 2,
           },
           mutations: { retry: false },
         },

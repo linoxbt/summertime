@@ -43,6 +43,7 @@ const MESSAGES: Record<string, string> = {
   LEDGER_UNAVAILABLE: "The ledger isn't reachable right now. Nothing was changed; please try again shortly.",
   LEDGER_REJECTED: "The ledger rejected this action. Nothing was changed.",
   NETWORK: "We couldn't reach Summertime. Check your connection and try again.",
+  BACKEND_OFFLINE: "Demo backend offline.",
 };
 
 export function friendlyError(e: unknown): string {

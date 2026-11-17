@@ -1,0 +1,11 @@
+# Netlify config for the Summertime web app (npm workspace "web").
+# In a monorepo, Netlify runs the command and resolves `publish` from the repository root.
+[build]
+  command = "npm run build -w web"
+  publish = "web/.next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+  # No localhost API default on hosted builds. Set API_URL in the Netlify UI once the backend is hosted.
+  SUMMERTIME_HOSTED = "1"
