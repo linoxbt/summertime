@@ -91,7 +91,7 @@ function CampaignDetail() {
       />
 
       {c.outcome && (
-        <Card className={c.outcome.result === "Succeeded" ? "mb-4 border-ok/40 bg-ok-soft" : "mb-4"}>
+        <Card className={c.outcome.result === "Succeeded" ? "mb-4 border-ok bg-ok-soft" : "mb-4"}>
           <h2 className="text-lg font-semibold text-fg">
             {c.outcome.result === "Succeeded"
               ? "Settled"
@@ -135,9 +135,9 @@ function CampaignDetail() {
               <Stat label="Capacity" value={`${cbm(t.capacity)} CBM`} />
             </div>
             <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted">
-              <Legend className="bg-ok" label="Committed" />
-              <Legend className="bg-amber" label="Reserved, not yet signed" />
-              <Legend className="bg-fg" label="Threshold" />
+              <Legend className="bg-fg" label="Committed" />
+              <Legend className="hatch border border-fg" label="Reserved, not yet signed" />
+              <Legend className="w-1 bg-amber" label="Threshold" />
             </div>
           </Card>
 
@@ -396,11 +396,11 @@ function Invitees({ campaign, onDone }: { campaign: ForwarderCampaignDetail; onD
                 return (
                   <label
                     key={p.party}
-                    className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${checked ? "border-accent bg-accent-soft" : "border-line"}`}
+                    className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${checked ? "border-fg bg-panel-2" : "border-line"}`}
                   >
                     <input
                       type="checkbox"
-                      className="h-4 w-4 accent-[#3b68f0]"
+                      className="h-4 w-4 accent-[#0b0a09]"
                       checked={checked}
                       onChange={(e) => setSelected((s) => (e.target.checked ? [...s, value] : s.filter((x) => x !== value)))}
                     />

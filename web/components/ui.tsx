@@ -19,9 +19,9 @@ export function Button({
   ...rest
 }: ComponentPropsWithRef<"button"> & { variant?: Variant; busy?: boolean }) {
   const styles: Record<Variant, string> = {
-    primary: "bg-accent text-white shadow-[0_0_24px_-6px_rgba(59,104,240,0.7)] hover:bg-accent-strong disabled:bg-line-strong disabled:text-muted disabled:shadow-none",
-    secondary: "bg-page text-fg border border-line-strong hover:bg-panel-2 disabled:text-faint",
-    danger: "bg-panel text-danger border border-danger/40 hover:bg-danger-soft disabled:text-faint disabled:border-line",
+    primary: "bg-fg text-page hover:bg-accent-strong disabled:bg-panel-2 disabled:text-faint",
+    secondary: "bg-panel text-fg border border-fg hover:bg-panel-2 disabled:text-faint disabled:border-line-strong",
+    danger: "bg-panel text-danger border border-danger hover:bg-danger-soft disabled:text-faint disabled:border-line",
     ghost: "text-muted hover:bg-panel-2",
   };
   return (
@@ -29,7 +29,7 @@ export function Button({
       {...rest}
       disabled={disabled || busy}
       className={cx(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed",
+        "inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed",
         styles[variant],
         className,
       )}
@@ -51,12 +51,14 @@ export function Spinner({ className = "h-5 w-5" }: { className?: string }) {
 
 export function Card({ title, action, children, className }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cx("min-w-0 rounded-lg border border-line bg-panel/80 p-4 sm:p-5", className)}>
+    <section className={cx("min-w-0 border border-line bg-panel p-4 sm:p-5", className)}>
       {(title || action) && (
         <div className="mb-4 flex items-center justify-between gap-3">
           {title && (
-            <h2 className="label flex min-w-0 flex-1 items-center gap-3 text-muted">
-              <span className="h-2 w-2 flex-none rounded-[2px] bg-link" aria-hidden="true" />
+            <h2 className="label flex min-w-0 flex-1 items-center gap-2 text-muted">
+              <span className="grid h-3 w-3 flex-none place-items-center rounded-full border border-fg" aria-hidden="true">
+                <span className="h-1.5 w-1.5 rounded-full bg-fg" />
+              </span>
               <span className="truncate">{title}</span>
               <span className="h-px flex-1 bg-line" aria-hidden="true" />
             </h2>
@@ -74,17 +76,17 @@ type Tone = "neutral" | "accent" | "success" | "danger" | "info";
 export function Badge({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
   const styles: Record<Tone, string> = {
     neutral: "border-line-strong text-muted",
-    accent: "border-amber/40 bg-amber-soft text-amber",
-    success: "border-ok/40 bg-ok-soft text-ok",
-    danger: "border-danger/40 bg-danger-soft text-danger",
-    info: "border-link/40 bg-accent-soft text-link",
+    accent: "border-amber bg-amber-soft text-amber",
+    success: "border-ok bg-ok-soft text-ok",
+    danger: "border-danger bg-danger-soft text-danger",
+    info: "border-fg bg-fg text-page",
   };
-  return <span className={cx("label inline-flex items-center rounded border px-2 py-0.5 whitespace-nowrap", styles[tone])}>{children}</span>;
+  return <span className={cx("label inline-flex items-center border px-2 py-0.5 whitespace-nowrap", styles[tone])}>{children}</span>;
 }
 
 export function LoadingState({ label = "Loading…" }: { label?: string }) {
   return (
-    <div role="status" className="flex items-center gap-3 rounded-xl border border-line bg-panel p-6 text-sm text-muted">
+    <div role="status" className="flex items-center gap-3 border border-line bg-panel p-6 text-sm text-muted">
       <Spinner />
       {label}
     </div>
@@ -93,7 +95,7 @@ export function LoadingState({ label = "Loading…" }: { label?: string }) {
 
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   return (
-    <div role="alert" className="rounded-xl border border-danger/40 bg-danger-soft p-5 text-sm text-danger">
+    <div role="alert" className="border border-danger bg-danger-soft p-5 text-sm text-danger">
       <p className="font-semibold">Something went wrong</p>
       <p className="mt-1">{friendlyError(error)}</p>
       {onRetry && (
@@ -107,9 +109,11 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
 
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-line-strong bg-panel p-6 text-center">
-      <p className="font-semibold text-fg">{title}</p>
-      {children && <div className="mt-1 text-sm text-muted">{children}</div>}
+    <div className="hatch border border-line-strong p-3">
+      <div className="bg-page p-5 text-center">
+        <p className="font-semibold text-fg">{title}</p>
+        {children && <div className="mt-1 text-sm text-muted">{children}</div>}
+      </div>
     </div>
   );
 }
@@ -117,7 +121,7 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
 export function InlineError({ error }: { error: unknown }) {
   if (!error) return null;
   return (
-    <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
+    <p role="alert" className="border-l-2 border-danger bg-danger-soft px-3 py-2 text-sm text-danger">
       {friendlyError(error)}
     </p>
   );
@@ -125,7 +129,7 @@ export function InlineError({ error }: { error: unknown }) {
 
 export function Notice({ tone = "neutral", children }: { tone?: "neutral" | "accent"; children: ReactNode }) {
   return (
-    <p className={cx("rounded-lg px-3 py-2 text-sm", tone === "accent" ? "bg-accent-soft text-link" : "bg-panel-2 text-muted")}>{children}</p>
+    <p className={cx("border-l-2 px-3 py-2 text-sm", tone === "accent" ? "border-fg bg-panel-2 text-fg" : "border-line-strong bg-panel-2 text-muted")}>{children}</p>
   );
 }
 
@@ -195,16 +199,16 @@ export function CapacityBar({
   return (
     <div>
       <div
-        className="relative h-2.5 w-full overflow-hidden rounded-sm bg-line"
+        className="relative h-3 w-full overflow-hidden border border-fg bg-panel"
         role="meter"
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={capacity}
         aria-valuenow={committed}
       >
-        <div className="absolute inset-y-0 left-0 bg-ok" style={{ width: `${c}%` }} />
-        {h > 0 && <div className="absolute inset-y-0 bg-amber" style={{ left: `${c}%`, width: `${h}%` }} />}
-        {t < 100 && <div className="absolute inset-y-0 w-0.5 bg-fg" style={{ left: `calc(${t}% - 1px)` }} title="Threshold" />}
+        <div className="absolute inset-y-0 left-0 bg-fg" style={{ width: `${c}%` }} />
+        {h > 0 && <div className="hatch absolute inset-y-0" style={{ left: `${c}%`, width: `${h}%` }} />}
+        {t < 100 && <div className="absolute inset-y-0 w-0.5 bg-amber" style={{ left: `calc(${t}% - 1px)` }} title="Threshold" />}
       </div>
     </div>
   );
@@ -214,7 +218,7 @@ export function CopyText({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <span className="inline-flex max-w-full items-center gap-2">
-      <code className="truncate rounded bg-panel-2 px-1.5 py-0.5 font-mono text-xs text-fg" title={value}>
+      <code className="truncate bg-panel-2 px-1.5 py-0.5 font-mono text-xs text-fg" title={value}>
         {value}
       </code>
       <button
@@ -280,20 +284,20 @@ export function ConfirmSheet({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="presentation">
-      <div className="absolute inset-0 bg-black/70" onClick={() => !busy && onClose()} aria-hidden="true" />
+      <div className="absolute inset-0 bg-fg/50" onClick={() => !busy && onClose()} aria-hidden="true" />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative z-10 max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-panel p-5 shadow-xl sm:max-w-lg sm:rounded-2xl"
+        className="relative z-10 max-h-[92vh] w-full overflow-y-auto border border-fg bg-panel p-5 shadow-[8px_8px_0_0_#0b0a09] sm:max-w-lg"
       >
-        <h2 id={titleId} className="text-lg font-semibold text-fg">
+        <h2 id={titleId} className="display text-3xl text-fg">
           {title}
         </h2>
-        <dl className="mt-4 divide-y divide-line rounded-lg border border-line">
+        <dl className="mt-4 divide-y divide-line border border-line">
           {rows.map((r) => (
             <div key={r.label} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
-              <dt className="text-muted">{r.label}</dt>
+              <dt className="label self-center text-faint">{r.label}</dt>
               <dd className="text-right font-semibold text-fg tabular">{r.value}</dd>
             </div>
           ))}
@@ -330,13 +334,13 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
 }
 
 export const inputClass =
-  "block w-full min-h-11 rounded-md border border-line-strong bg-page px-3 py-2 text-sm text-fg tabular placeholder:text-faint focus:border-link focus:outline-none focus:ring-2 focus:ring-link/30";
+  "block w-full min-h-11 border border-line-strong bg-panel px-3 py-2 text-sm text-fg tabular placeholder:text-faint focus:border-fg focus:outline-none focus:ring-2 focus:ring-fg/15";
 
 export function PageHeader({ title, subtitle, action }: { title: ReactNode; subtitle?: ReactNode; action?: ReactNode }) {
   return (
     <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-3xl font-semibold tracking-tight text-fg sm:text-4xl">{title}</h1>
+        <h1 className="display text-4xl text-fg sm:text-5xl">{title}</h1>
         {subtitle && <div className="mt-1 text-sm text-muted">{subtitle}</div>}
       </div>
       {action}

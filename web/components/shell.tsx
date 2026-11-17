@@ -76,10 +76,10 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
   const nav = user ? NAV[user.role] : [];
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-line bg-page/85 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+      <header className="sticky top-0 z-40 border-b border-line bg-page/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 border-x border-line px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
-            <Link href={user ? (nav[0]?.href ?? "/") : "/"} className="flex items-center gap-2" aria-label="Summertime home">
+            <Link href={user ? (nav[0]?.href ?? "/") : "/"} className="flex items-center gap-2">
               <Logo />
             </Link>
             <DemoChip />
@@ -138,7 +138,7 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
           </nav>
         )}
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      <main className="mx-auto min-h-[calc(100vh-61px)] max-w-6xl border-x border-line px-4 py-8 sm:px-6">{children}</main>
     </div>
   );
 }
@@ -146,7 +146,7 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
 /** Demo environment marker (test USDCx only). */
 export function DemoChip() {
   return (
-    <span className="label hidden items-center gap-2 rounded border border-line-strong px-2 py-1 text-muted sm:inline-flex">
+    <span className="label hidden items-center gap-2 border border-line-strong px-2 py-1 text-muted sm:inline-flex">
       <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden="true" />
       Demo · test USDCx
     </span>
@@ -163,7 +163,7 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={cx("rounded-md px-3 py-2 text-sm font-medium", active ? "bg-panel-2 text-fg" : "text-muted hover:text-fg")}
+      className={cx("border-b-2 px-3 py-2 text-sm font-medium", active ? "border-fg text-fg" : "border-transparent text-muted hover:text-fg")}
     >
       {children}
     </Link>

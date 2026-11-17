@@ -6,10 +6,10 @@ export const metadata: Metadata = { title: "Privacy and trust model" };
 function Block({ title, items }: { title: string; items: string[] }) {
   return (
     <>
-      <h2 className="mt-10 text-xl font-semibold text-fg">{title}</h2>
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">
+      <h2 className="display mt-10 text-3xl text-fg">{title}</h2>
+      <ul className="mt-3 divide-y divide-line border-y border-line text-muted">
         {items.map((i) => (
-          <li key={i}>{i}</li>
+          <li key={i} className="py-2">{i}</li>
         ))}
       </ul>
     </>
@@ -19,11 +19,12 @@ function Block({ title, items }: { title: string; items: string[] }) {
 export default function PrivacyPage() {
   return (
     <PublicPage>
+      <div className="mx-auto max-w-6xl border-x border-line">
       <article className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
-        <h1 className="text-3xl font-semibold tracking-tight text-fg sm:text-4xl">Privacy and trust</h1>
-        <blockquote className="mt-6 border-l-4 border-accent pl-5 text-lg font-medium text-fg">&ldquo;{PRIVACY_PROMISE}&rdquo;</blockquote>
+        <h1 className="display text-5xl text-fg sm:text-7xl">Privacy and trust.</h1>
+        <blockquote className="mt-6 border-l-2 border-fg pl-5 text-lg text-fg">&ldquo;{PRIVACY_PROMISE}&rdquo;</blockquote>
 
-        <h2 className="mt-10 text-xl font-semibold text-fg">Who can do what</h2>
+        <h2 className="display mt-10 text-3xl text-fg">Who can do what</h2>
         <div className="mt-4">
           <TrustTable />
         </div>
@@ -45,6 +46,7 @@ export default function PrivacyPage() {
         <Block title="Pilot mode" items={["Summertime hosts your party and signs for you", "Private from other importers, not from Summertime", "Own-wallet mode removes this"]} />
         <Block title="Not covered" items={["Physical delivery (off-ledger, forwarder agreement)", "Refunds after settlement", "Summertime is unaudited"]} />
       </article>
+      </div>
     </PublicPage>
   );
 }

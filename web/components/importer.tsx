@@ -60,7 +60,7 @@ export function ProgressPanel({ progress }: { progress: ProgressDto | undefined 
   return (
     <div>
       <div
-        className="relative h-3 overflow-hidden rounded-full bg-line-strong"
+        className="relative h-3 overflow-hidden border border-fg bg-panel"
         role="meter"
         aria-label="Container progress"
         aria-valuemin={0}
@@ -68,7 +68,7 @@ export function ProgressPanel({ progress }: { progress: ProgressDto | undefined 
         aria-valuenow={progress.reservedCbm}
       >
         <div className="absolute inset-y-0 left-0 bg-accent" style={{ width: `${filled}%` }} />
-        {thr < 100 && <div className="absolute inset-y-0 w-0.5 bg-panel-2" style={{ left: `calc(${thr}% - 1px)` }} />}
+        {thr < 100 && <div className="absolute inset-y-0 w-0.5 bg-amber" style={{ left: `calc(${thr}% - 1px)` }} />}
       </div>
       <p className="mt-2 text-sm tabular">
         <span className="font-semibold text-fg">
@@ -126,20 +126,20 @@ export function ReceiptsQuery() {
 export function PositionSlip({ pos, status, children }: { pos: PositionDto; status: ReactNode; children?: ReactNode }) {
   const [from, to] = (pos.route ?? "").split(/\s*(?:→|->)\s*/);
   return (
-    <section className="overflow-hidden rounded-lg border border-line-strong bg-gradient-to-b from-[#14214f] to-[#0b1433]">
-      <div className="flex items-center justify-between px-5 pt-4">
-        <span className="label text-muted">Container booking</span>
+    <section className="overflow-hidden border border-fg bg-panel shadow-[6px_6px_0_0_#0b0a09]">
+      <div className="flex items-center justify-between border-b border-fg px-5 py-2.5">
+        <span className="display text-xl text-fg">Container booking</span>
         <PositionStageBadge stage={pos.stage} />
       </div>
       <div className="flex items-end justify-between gap-3 px-5 pt-4">
         <div className="min-w-0">
           <p className="label text-faint">From</p>
-          <p className="text-xl font-semibold leading-tight tracking-tight text-fg [overflow-wrap:anywhere] sm:text-3xl">{from || "Origin"}</p>
+          <p className="display text-2xl text-fg [overflow-wrap:anywhere] sm:text-4xl">{from || "Origin"}</p>
         </div>
-        <span className="mb-3 h-px min-w-6 flex-1 border-t border-dashed border-amber/60" aria-hidden="true" />
+        <span className="mb-3 h-px min-w-6 flex-1 border-t border-dashed border-fg" aria-hidden="true" />
         <div className="min-w-0 text-right">
           <p className="label text-faint">To</p>
-          <p className="text-xl font-semibold leading-tight tracking-tight text-fg [overflow-wrap:anywhere] sm:text-3xl">{to || "Destination"}</p>
+          <p className="display text-2xl text-fg [overflow-wrap:anywhere] sm:text-4xl">{to || "Destination"}</p>
         </div>
       </div>
       <div className="mx-5 my-4 border-t border-dashed border-line-strong" />
@@ -157,7 +157,7 @@ export function PositionSlip({ pos, status, children }: { pos: PositionDto; stat
           <dd className="mt-1 truncate text-lg font-semibold text-fg">{pos.forwarder.displayName}</dd>
         </div>
       </dl>
-      <div className="mt-4 border-t border-line bg-page/40 px-5 py-4">
+      <div className="mt-4 border-t border-line bg-page px-5 py-4">
         {status}
         {children}
       </div>

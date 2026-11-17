@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import "@fontsource-variable/mona-sans";
-import "@fontsource-variable/martian-mono";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
+import "@fontsource/koulen";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#050817",
+  themeColor: "#f3f2ee",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -1,319 +1,277 @@
-// Landing-page visuals: route globe, booking slip, sailings board, product panels.
-// Illustrative data is labelled "Example" wherever it appears.
+"use client";
 
-import type { ReactNode } from "react";
-import { geoContains, geoOrthographic, geoPath, geoInterpolate } from "d3-geo";
-import { feature } from "topojson-client";
-import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
-import land110 from "world-atlas/land-110m.json";
+import { useState, type ReactNode } from "react";
 
-// ---- Route globe --------------------------------------------------------------------------
-// Land is dotted from Natural Earth (world-atlas, public domain); computed at render time on
-// the server, so the browser receives a static SVG.
+/* ---------------------------------------------------------------- Ticker */
 
-
-const SIZE = 400;
-const projection = geoOrthographic()
-  .rotate([-55, 8])
-  .scale(SIZE / 2)
-  .translate([SIZE / 2, SIZE / 2])
-  .clipAngle(90);
-
-// The China–West Africa sea lane, via the Strait of Malacca and the Cape of Good Hope.
-const LANE: [number, number][] = [
-  [113.3, 23.1], // Guangzhou [lon, lat]
-  [112, 15],
-  [106, 5],
-  [103.8, 1.3], // Singapore
-  [95, 5.8],
-  [80.5, 5.9], // off Colombo
-  [70, -8],
-  [55, -22],
-  [32, -34],
-  [19.5, -35.5], // Cape of Good Hope
-  [9, -25],
-  [3, -8],
-  [3.4, 6.2], // Lagos (Apapa)
+const TICKS = [
+  "CNCAN → NGAPP — FILLING 54/60",
+  "CNSZX → GHTEM — LOCKED 48/60",
+  "CNNGB → KEMBA — SETTLED 60/60",
+  "CNSHA → NGAPP — REFUNDED + BONUS",
+  "CNXMN → CIABJ — FILLING 22/60",
+  "CNTAO → TZDAR — SETTLED 58/60",
 ];
 
-function lanePath(): string {
-  const coords: [number, number][] = [];
-  for (let i = 0; i < LANE.length - 1; i++) {
-    const interp = geoInterpolate(LANE[i]!, LANE[i + 1]!);
-    for (let t = 0; t < 1; t += 0.1) coords.push(interp(t));
-  }
-  coords.push(LANE[LANE.length - 1]!);
-  return geoPath(projection)({ type: "LineString", coordinates: coords }) ?? "";
-}
-
-function landDots(): { x: number; y: number }[] {
-  const topo = land110 as unknown as Parameters<typeof feature>[0];
-  const landFc = feature(topo, (topo as unknown as { objects: { land: never } }).objects.land) as unknown as FeatureCollection<Polygon | MultiPolygon>;
-  const out: { x: number; y: number }[] = [];
-  for (let lat = -60; lat <= 75; lat += 2.4) {
-    const step = 2.4 / Math.max(0.3, Math.cos((lat * Math.PI) / 180));
-    for (let lon = -180; lon < 180; lon += step) {
-      if (!geoContains(landFc, [lon, lat])) continue;
-      const p = projection([lon, lat]);
-      // Skip the far hemisphere.
-      const d = projection.invert && p ? projection.invert(p) : null;
-      if (!p || !d || Math.abs(d[0] - lon) > 0.01) continue;
-      out.push({ x: p[0], y: p[1] });
-    }
-  }
-  return out;
-}
-
-const PORTS = [
-  { code: "CNCAN", lonlat: [113.3, 23.1] as [number, number], dx: 8, dy: -8, anchor: "start" as const },
-  { code: "NGAPP", lonlat: [3.4, 6.2] as [number, number], dx: -8, dy: -8, anchor: "end" as const },
-];
-
-const DOTS = landDots();
-const LANE_PATH = lanePath();
-const OUTLINE = geoPath(projection)({ type: "Sphere" }) ?? "";
-
-export function RouteGlobe() {
-  return (
-    <svg viewBox={`-30 -10 ${SIZE + 60} ${SIZE + 20}`} className="h-full w-full" role="img" aria-label="Sea lane from Guangzhou to Lagos (Apapa)">
-      <defs>
-        <radialGradient id="globe-glow" cx="40%" cy="35%" r="70%">
-          <stop offset="0%" stopColor="#1b2d6b" />
-          <stop offset="100%" stopColor="#070c22" />
-        </radialGradient>
-      </defs>
-      <path d={OUTLINE} fill="url(#globe-glow)" stroke="#2c3d78" strokeWidth="1" />
-      {DOTS.map((d, i) => (
-        <circle key={i} cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r="1.25" fill="#8aa9ff" opacity="0.55" />
+export function Ticker() {
+  const row = (hidden: boolean) => (
+    <ul className="flex shrink-0 items-center gap-10 pr-10" aria-hidden={hidden || undefined}>
+      {TICKS.map((t) => (
+        <li key={t} className="label flex items-center gap-2 whitespace-nowrap text-fg">
+          <span className="h-1.5 w-1.5 rounded-full bg-fg" aria-hidden="true" />
+          {t}
+        </li>
       ))}
-      <path d={LANE_PATH} fill="none" stroke="#ffb547" strokeOpacity="0.22" strokeWidth="6" strokeLinecap="round" />
-      <path d={LANE_PATH} fill="none" stroke="#ffb547" strokeWidth="1.8" className="route-dash" strokeLinecap="round" />
-      {PORTS.map((p) => {
-        const pt = projection(p.lonlat)!;
-        return (
-          <g key={p.code}>
-            <circle cx={pt[0]} cy={pt[1]} r="9" fill="#3fe0b5" opacity="0.2" />
-            <circle cx={pt[0]} cy={pt[1]} r="3.5" fill="#3fe0b5" />
-            <text x={pt[0] + p.dx} y={pt[1] + p.dy} textAnchor={p.anchor} className="fill-[#eef2ff] font-mono text-[10px] tracking-wider">
-              {p.code}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    </ul>
   );
-}
-
-// ---- Booking slip --------------------------------------------------------------------------
-
-export function BookingSlip() {
   return (
-    <div className="w-full rotate-[-3deg] rounded-xl border border-line-strong bg-gradient-to-b from-[#16245a] to-[#0d1740] p-5 shadow-[0_30px_60px_-20px_rgba(0,0,0,0.8)]">
-      <div className="flex items-center justify-between">
-        <span className="label text-muted">Container booking</span>
-        <span className="label text-faint">Example</span>
-      </div>
-      <div className="mt-4 flex items-end justify-between">
-        <div>
-          <p className="text-3xl font-semibold tracking-tight text-fg">CNCAN</p>
-          <p className="text-xs text-muted">Guangzhou</p>
-        </div>
-        <span className="mb-4 h-px flex-1 border-t border-dashed border-amber/60 mx-3" aria-hidden="true" />
-        <div className="text-right">
-          <p className="text-3xl font-semibold tracking-tight text-fg">NGAPP</p>
-          <p className="text-xs text-muted">Lagos (Apapa)</p>
-        </div>
-      </div>
-      <div className="my-4 border-t border-dashed border-line-strong" />
-      <p className="label text-faint">Settled to forwarder</p>
-      <p className="mt-1 text-3xl font-semibold text-fg tabular">9,000.00 USDCx</p>
-      <dl className="mt-4 grid grid-cols-3 gap-2">
-        {[
-          ["Space", "60 CBM"],
-          ["Importers", "6"],
-          ["Legs", "1 tx"],
-        ].map(([k, v]) => (
-          <div key={k}>
-            <dt className="label text-faint">{k}</dt>
-            <dd className="mt-0.5 text-sm font-semibold text-fg">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <div className="mt-4 flex items-center justify-between">
-        <Barcode />
-        <span className="label rounded border border-ok/40 bg-ok-soft px-2 py-1 text-ok">✓ Settled</span>
+    <div className="flex overflow-hidden border-y border-line bg-panel py-3" role="region" aria-label="Example campaigns">
+      <div className="flex min-w-0 motion-safe:animate-[ticker_40s_linear_infinite]">
+        {row(false)}
+        {row(true)}
       </div>
     </div>
   );
 }
 
+/* ---------------------------------------------------------------- Steps */
+
+type Step = { n: string; title: string; who: string; doc: ReactNode };
+
+const STEPS: Step[] = [
+  {
+    n: "01",
+    title: "Open a campaign",
+    who: "Forwarder",
+    doc: (
+      <Doc title="Campaign terms" ref_="CMP-0226">
+        <DocRow k="Lane" v="CNCAN → NGAPP" />
+        <DocRow k="Box" v="40' HC · 60 CBM" />
+        <DocRow k="Rate" v="150 USDCx / CBM" />
+        <DocRow k="Threshold" v="48 CBM" />
+        <DocRow k="Lock" v="Fri 18:00 WAT" />
+        <DocRow k="Bond" v="200 USDCx" strong />
+      </Doc>
+    ),
+  },
+  {
+    n: "02",
+    title: "Reserve privately",
+    who: "Importer",
+    doc: (
+      <Doc title="Reservation" ref_="RSV-A-14">
+        <DocRow k="Space" v="14 CBM" />
+        <DocRow k="Price" v="2,100.00 USDCx" />
+        <DocRow k="Funds" v="Allocated, not sent" />
+        <DocRow k="Visible to" v="You · forwarder · Summertime" />
+        <DocRow k="Hidden from" v="Other importers" strong />
+      </Doc>
+    ),
+  },
+  {
+    n: "03",
+    title: "Fill and lock",
+    who: "Everyone",
+    doc: (
+      <Doc title="Lock notice" ref_="LCK-0226">
+        <DocRow k="Committed" v="54 / 60 CBM" />
+        <DocRow k="Threshold" v="Reached" strong />
+        <DocRow k="Importers" v="6" />
+        <DocRow k="Changes" v="Closed" />
+      </Doc>
+    ),
+  },
+  {
+    n: "04",
+    title: "Settle together",
+    who: "Ledger",
+    doc: (
+      <Doc title="Settlement receipt" ref_="STL-0226">
+        <DocRow k="Legs" v="6 importers → forwarder" />
+        <DocRow k="Total" v="8,100.00 USDCx" />
+        <DocRow k="Transaction" v="1, atomic" strong />
+        <DocRow k="If short" v="Full refund + bond bonus" />
+      </Doc>
+    ),
+  },
+];
+
+export function Steps() {
+  const [active, setActive] = useState(0);
+  const step = STEPS[active]!;
+  return (
+    <div className="grid border-t border-line lg:grid-cols-[1.15fr_1fr]">
+      <ol className="divide-y divide-line lg:border-r lg:border-line">
+        {STEPS.map((s, i) => (
+          <li key={s.n}>
+            <button
+              type="button"
+              onClick={() => setActive(i)}
+              aria-pressed={i === active}
+              className="grid min-h-16 w-full grid-cols-[4rem_1fr_auto] items-center gap-4 px-4 py-4 text-left hover:bg-panel sm:px-6"
+            >
+              <span className={`display text-3xl ${i === active ? "text-fg" : "text-faint"}`}>{s.n}</span>
+              <span className={`display text-2xl sm:text-3xl ${i === active ? "text-fg" : "text-faint"}`}>{s.title}</span>
+              <span className="label text-faint">{s.who}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      <div className="hatch flex items-center justify-center border-t border-line p-6 sm:p-10 lg:border-t-0">
+        <div key={step.n} className="w-full max-w-sm motion-safe:animate-[fill-in_0.35s_ease-out_both]">
+          {step.doc}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Doc({ title, ref_, children }: { title: string; ref_: string; children: ReactNode }) {
+  return (
+    <div className="border border-fg bg-panel shadow-[6px_6px_0_0_#0b0a09]">
+      <div className="flex items-center justify-between border-b border-fg px-4 py-2">
+        <span className="display text-xl text-fg">{title}</span>
+        <span className="label text-faint">{ref_}</span>
+      </div>
+      <dl className="divide-y divide-line px-4">{children}</dl>
+      <div className="flex items-end justify-between border-t border-line px-4 py-2">
+        <span className="label text-faint">Example</span>
+        <Barcode />
+      </div>
+    </div>
+  );
+}
+
+function DocRow({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-2 text-sm">
+      <dt className="label text-faint">{k}</dt>
+      <dd className={`text-right tabular ${strong ? "font-semibold text-fg" : "text-muted"}`}>{v}</dd>
+    </div>
+  );
+}
+
 function Barcode() {
-  const bars = [2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2];
+  const bars = [2, 1, 1, 3, 1, 2, 1, 1, 2, 3, 1, 1, 2, 1, 3, 1, 2, 1, 1, 2];
   let x = 0;
   return (
-    <svg viewBox="0 0 120 28" className="h-7 w-28" aria-hidden="true">
+    <svg viewBox="0 0 64 18" className="h-4 w-16" aria-hidden="true">
       {bars.map((w, i) => {
-        const r = (
-          <rect key={i} x={x} y="0" width={w} height="28" fill={i % 2 ? "transparent" : "#9aa6cb"} />
-        );
-        x += w + 1.2;
+        const r = i % 2 === 0 ? <rect key={i} x={x} y="0" width={w} height="18" fill="#0b0a09" /> : null;
+        x += w + 1;
         return r;
       })}
     </svg>
   );
 }
 
-// ---- Sailings board ------------------------------------------------------------------------
+/* ---------------------------------------------------------------- Sailings */
 
-export interface Sailing {
-  time: string;
-  lane: string;
-  filled: string;
-  bond: string;
-  status: "SETTLED" | "FILLING" | "REFUNDED" | "LOCKED";
-}
+type Lane = { o: string; oc: string; d: string; dc: string; filled: number; cap: number; status: "Filling" | "Locked" | "Settled" | "Refunded"; lock: string };
 
-export const EXAMPLE_SAILINGS: Sailing[] = [
-  { time: "09:48", lane: "CAN>APP", filled: "60/60", bond: "200", status: "SETTLED" },
-  { time: "09:31", lane: "NGB>APP", filled: "54/60", bond: "180", status: "REFUNDED" },
-  { time: "09:12", lane: "SZX>TIN", filled: "41/60", bond: "200", status: "FILLING" },
-  { time: "08:55", lane: "SHA>APP", filled: "33/40", bond: "120", status: "LOCKED" },
-  { time: "08:40", lane: "CAN>TEM", filled: "18/30", bond: "90", status: "FILLING" },
+const LANES: Lane[] = [
+  { o: "Guangzhou", oc: "CNCAN", d: "Lagos Apapa", dc: "NGAPP", filled: 54, cap: 60, status: "Filling", lock: "Fri 18:00" },
+  { o: "Shenzhen", oc: "CNSZX", d: "Tema", dc: "GHTEM", filled: 48, cap: 60, status: "Locked", lock: "Closed" },
+  { o: "Ningbo", oc: "CNNGB", d: "Mombasa", dc: "KEMBA", filled: 60, cap: 60, status: "Settled", lock: "Closed" },
+  { o: "Shanghai", oc: "CNSHA", d: "Lagos Apapa", dc: "NGAPP", filled: 31, cap: 60, status: "Refunded", lock: "Expired" },
+  { o: "Xiamen", oc: "CNXMN", d: "Abidjan", dc: "CIABJ", filled: 22, cap: 60, status: "Filling", lock: "Tue 12:00" },
+  { o: "Qingdao", oc: "CNTAO", d: "Dar es Salaam", dc: "TZDAR", filled: 58, cap: 60, status: "Settled", lock: "Closed" },
+  { o: "Guangzhou", oc: "CNCAN", d: "Dakar", dc: "SNDKR", filled: 40, cap: 60, status: "Filling", lock: "Mon 09:00" },
 ];
 
-const statusColour: Record<Sailing["status"], string> = {
-  SETTLED: "text-ok",
-  REFUNDED: "text-amber",
-  FILLING: "text-link",
-  LOCKED: "text-fg",
+const STATUS_STYLE: Record<Lane["status"], string> = {
+  Filling: "border-fg text-fg",
+  Locked: "border-fg bg-fg text-page",
+  Settled: "border-ok text-ok",
+  Refunded: "border-amber text-amber",
 };
 
-function Flaps({ text, width, colour = "text-amber", delay = 0 }: { text: string; width: number; colour?: string; delay?: number }) {
-  const chars = text.padEnd(width, " ").slice(0, width).split("");
+export function LanesTable() {
   return (
-    <span className="inline-flex gap-[3px]" aria-hidden="true">
-      {chars.map((c, i) => (
-        <span
-          key={i}
-          className={`flap flap-in inline-flex h-7 w-[1.15rem] items-center justify-center text-[0.8rem] font-semibold sm:h-8 sm:w-6 sm:text-sm ${colour}`}
-          style={{ animationDelay: `${delay + i * 35}ms` }}
-        >
-          {c === ">" ? "→" : c}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-export function SailingsBoard({ rows = EXAMPLE_SAILINGS }: { rows?: Sailing[] }) {
-  return (
-    <div className="overflow-hidden rounded-lg border border-line bg-[#070c20]">
-      <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <span className="flex items-center gap-3">
-          <ShipIcon />
-          <span className="label text-fg">Sailings</span>
-          <span className="hidden text-xs text-faint sm:inline">Example containers</span>
-        </span>
-        <span className="label rounded border border-line-strong px-2 py-1 text-amber">China → West Africa</span>
-      </div>
-      <div className="relative overflow-x-auto" tabIndex={0} role="region" aria-label="Example sailings">
-        <table className="w-full min-w-[640px] text-left">
-          <caption className="sr-only">Example container campaigns: time, lane, CBM filled, bond in USDCx and status</caption>
-          <thead>
-            <tr className="label text-faint">
-              <th className="px-4 py-2 font-normal">Time</th>
-              <th className="px-2 py-2 font-normal">Lane</th>
-              <th className="px-2 py-2 font-normal">CBM filled</th>
-              <th className="px-2 py-2 font-normal">Bond</th>
-              <th className="px-4 py-2 font-normal">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.time + r.lane}>
-                <td className="px-4 py-1.5">
-                  <span className="sr-only">{r.time}</span>
-                  <Flaps text={r.time} width={5} colour="text-fg" delay={i * 120} />
-                </td>
-                <td className="px-2 py-1.5">
-                  <span className="sr-only">{r.lane.replace(">", " to ")}</span>
-                  <Flaps text={r.lane} width={7} delay={i * 120 + 100} />
-                </td>
-                <td className="px-2 py-1.5">
-                  <span className="sr-only">{r.filled} CBM</span>
-                  <Flaps text={r.filled} width={5} delay={i * 120 + 200} />
-                </td>
-                <td className="px-2 py-1.5">
-                  <span className="sr-only">{r.bond} USDCx</span>
-                  <Flaps text={r.bond} width={4} colour="text-fg" delay={i * 120 + 300} />
-                </td>
-                <td className="px-4 py-1.5">
-                  <span className="sr-only">{r.status}</span>
-                  <Flaps text={r.status} width={8} colour={statusColour[r.status]} delay={i * 120 + 400} />
-                </td>
-              </tr>
+    <div className="overflow-x-auto border-y border-line bg-panel sm:border" tabIndex={0} role="region" aria-label="Example sailings (scrolls sideways)">
+      <table className="w-full min-w-[720px] text-left text-sm">
+        <thead>
+          <tr className="label border-b border-line text-faint">
+            {["No.", "Origin", "Destination", "Filled", "Status", "Lock"].map((h, i) => (
+              <th key={h} className={`px-4 py-3 font-normal ${i ? "border-l border-line" : ""}`}>
+                {h}
+              </th>
             ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function ShipIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-4 w-4 text-amber" fill="currentColor" aria-hidden="true">
-      <path d="M4 9h12l-1.6 5.2a1 1 0 0 1-.95.7H6.55a1 1 0 0 1-.95-.7L4 9Zm2-4h3v3H6V5Zm4 0h3v3h-3V5ZM2 17h16v1.5H2V17Z" />
-    </svg>
-  );
-}
-
-// ---- Sailings ticker (hero footer) --------------------------------------------------------
-
-export function SailingsTicker() {
-  const items = [...EXAMPLE_SAILINGS, ...EXAMPLE_SAILINGS];
-  return (
-    <div className="flex items-stretch border-t border-line bg-page/80">
-      <span className="label flex flex-none items-center gap-2 bg-amber px-4 py-3 text-[#1a1204]">
-        <ShipIcon /> Sailings
-      </span>
-      <div className="relative min-w-0 flex-1 overflow-hidden" aria-label="Example sailings" role="marquee">
-        <div className="flex w-max animate-[ticker_40s_linear_infinite] gap-10 px-6 py-3 motion-reduce:animate-none">
-          {items.map((r, i) => (
-            <span key={i} className="flex items-center gap-3 whitespace-nowrap text-sm">
-              <span className="font-semibold text-fg">{r.lane.replace(">", " → ")}</span>
-              <span className="label text-faint">{r.filled} CBM</span>
-              <span className={`label ${statusColour[r.status]}`}>{r.status}</span>
-            </span>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">
+          {LANES.map((l, i) => (
+            <tr key={i}>
+              <td className="px-4 py-3 font-mono text-faint">{String(i + 1).padStart(2, "0")}</td>
+              <td className="border-l border-line px-4 py-3 text-fg">
+                {l.o} <span className="label ml-1 text-faint">{l.oc}</span>
+              </td>
+              <td className="border-l border-line px-4 py-3 text-fg">
+                → {l.d} <span className="label ml-1 text-faint">{l.dc}</span>
+              </td>
+              <td className="border-l border-line px-4 py-3">
+                <span className="flex items-center gap-3">
+                  <span className="relative h-2 w-20 bg-panel-2" aria-hidden="true">
+                    <span className="absolute inset-y-0 left-0 bg-fg" style={{ width: `${(l.filled / l.cap) * 100}%` }} />
+                    <span className="absolute inset-y-[-3px] w-px bg-fg" style={{ left: "80%" }} />
+                  </span>
+                  <span className="font-mono text-fg tabular">
+                    {l.filled}/{l.cap}
+                  </span>
+                </span>
+              </td>
+              <td className="border-l border-line px-4 py-3">
+                <span className={`label inline-block border px-2 py-0.5 ${STATUS_STYLE[l.status]}`}>{l.status}</span>
+              </td>
+              <td className="border-l border-line px-4 py-3 font-mono text-muted">{l.lock}</td>
+            </tr>
           ))}
-        </div>
-      </div>
+        </tbody>
+      </table>
     </div>
   );
 }
 
-// ---- Section scaffolding ------------------------------------------------------------------
+/* ---------------------------------------------------------------- FAQ */
 
-export function Eyebrow({ letter, children }: { letter: string; children: ReactNode }) {
-  return (
-    <p className="label flex items-center gap-3 text-muted">
-      <span className="flex h-5 w-5 items-center justify-center rounded-[3px] bg-accent text-[10px] text-white">{letter}</span>
-      {children}
-      <span className="h-px w-16 bg-line-strong" aria-hidden="true" />
-    </p>
-  );
-}
+const QUESTIONS: { q: string; a: string }[] = [
+  { q: "What if the container doesn't fill?", a: "Nobody pays. Every importer gets a full refund plus a share of the forwarder's bond." },
+  { q: "Who holds my money before settlement?", a: "Funds stay locked in your own allocation, never pooled, until the single settlement." },
+  { q: "Can other importers see my order?", a: "No. Each reservation is a separate private contract on Canton." },
+  { q: "Can the forwarder settle early or overbook?", a: "No. Settlement needs the threshold, must land before the deadline and needs Summertime's co-signature. Capacity is enforced on-ledger." },
+  { q: "What is USDCx?", a: "A dollar stablecoin on Canton Network. The demo uses test USDCx only." },
+  { q: "Is it audited?", a: "Not yet. This is a pilot; an audit comes before real funds." },
+];
 
-export function Panel({ letter, tag, title, children }: { letter: string; tag: string; title: string; children: ReactNode }) {
+export function Questions() {
+  const [open, setOpen] = useState(0);
   return (
-    <div className="flex flex-col rounded-lg border border-line bg-panel/70 p-5">
-      <p className="label flex items-center gap-3 text-muted">
-        <span className="flex h-5 w-5 items-center justify-center rounded-[3px] bg-panel-2 text-[10px] text-link">{letter}</span>
-        {tag}
-        <span className="h-px flex-1 bg-line" aria-hidden="true" />
-      </p>
-      <h3 className="mt-4 text-xl font-semibold text-fg">{title}</h3>
-      <div className="mt-5 flex-1 rounded-md border border-line bg-page/70 p-4">{children}</div>
-    </div>
+    <ul className="divide-y divide-line border-y border-line">
+      {QUESTIONS.map((item, i) => {
+        const isOpen = open === i;
+        const id = `faq-${i}`;
+        return (
+          <li key={item.q} className="bg-panel">
+            <h3>
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={id}
+                onClick={() => setOpen(isOpen ? -1 : i)}
+                className="flex min-h-14 w-full items-center justify-between gap-4 px-4 py-3 text-left sm:px-5"
+              >
+                <span className="display text-lg text-fg sm:text-xl">{item.q}</span>
+                <span className={`grid h-8 w-8 flex-none place-items-center ${isOpen ? "bg-fg text-page" : "bg-panel-2 text-fg"}`} aria-hidden="true">
+                  {isOpen ? "−" : "+"}
+                </span>
+              </button>
+            </h3>
+            <div id={id} hidden={!isOpen} className="px-4 pb-4 text-sm text-muted sm:px-5">
+              {item.a}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

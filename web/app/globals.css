@@ -1,43 +1,55 @@
 @import "tailwindcss";
 
 /* Summertime design system.
-   Direction: Corridor (Framer template by Fedra Yuny), rebuilt as original code for a
-   shipping context — deep navy, route lines, booking slips, a sailings board, mono labels.
+   Direction: Lantern Cargo (free Framer template), rebuilt as original code: warm paper,
+   near-black ink, condensed uppercase display type, mono labels, square corners and
+   visible grid rules framing every section. Illustrations are our own line drawings.
    Every text/background pair below meets WCAG AA (checked by tests/e2e/a11y.e2e.mjs). */
 @theme {
-  --font-sans: "Mona Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  --font-mono: "Martian Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: "Koulen", "Arial Narrow", Impact, sans-serif;
 
-  --color-page: #050817;
-  --color-panel: #0b1433;
-  --color-panel-2: #101c45;
-  --color-line: #1d2a57;
-  --color-line-strong: #2c3d78;
+  --color-page: #f3f2ee;
+  --color-panel: #faf9f6;
+  --color-panel-2: #e8e7e2;
+  --color-line: #dcdbd6;
+  --color-line-strong: #b5b4ae;
 
-  --color-fg: #eef2ff;
-  --color-muted: #9aa6cb;
-  --color-faint: #7886af;
+  --color-fg: #0b0a09;
+  --color-muted: #4a4a47;
+  --color-faint: #63625e;
 
-  --color-accent: #3b68f0;
-  --color-accent-strong: #2f58d6;
-  --color-accent-soft: #14225a;
-  --color-link: #8aa9ff;
+  /* The accent is ink: black buttons, black fills. */
+  --color-accent: #0b0a09;
+  --color-accent-strong: #2c2b28;
+  --color-accent-soft: #e1e5f6;
+  --color-link: #1c3bc2;
 
-  --color-ok: #3fe0b5;
-  --color-ok-soft: #0c2b2f;
-  --color-amber: #ffb547;
-  --color-amber-soft: #2b2312;
-  --color-danger: #ff8a80;
-  --color-danger-soft: #2e1420;
+  --color-ok: #16613c;
+  --color-ok-soft: #dceadf;
+  --color-amber: #7d4c00;
+  --color-amber-soft: #f1e4c8;
+  --color-danger: #a8231b;
+  --color-danger-soft: #f5dcd8;
 
-  /* Backwards-compatible names used across the app. */
-  --color-ink: #eef2ff;
+  /* Backwards-compatible name used across the app. */
+  --color-ink: #0b0a09;
+
+  /* Square corners everywhere; rounded-full (dots) is unaffected. */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
 }
 
 html {
   font-feature-settings: "tnum" 1;
   -webkit-text-size-adjust: 100%;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
@@ -50,76 +62,36 @@ body {
   outline-offset: 2px;
 }
 
-input[type="range"] {
-  accent-color: var(--color-accent);
-}
-
-input[type="date"]::-webkit-calendar-picker-indicator,
-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.8);
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-fg);
 }
 
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* Small uppercase mono label, the system's signature. */
+/* Small uppercase mono label. */
 .label {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-/* Faint grid behind hero and section backgrounds. */
-.grid-bg {
-  background-image:
-    linear-gradient(to right, rgb(132 160 255 / 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(132 160 255 / 0.06) 1px, transparent 1px);
-  background-size: 64px 64px;
+/* Condensed uppercase display type for headings and big numbers. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  line-height: 0.95;
 }
 
-/* Split-flap cell used by the sailings board. */
-.flap {
-  font-family: var(--font-mono);
-  background: #0a0f24;
-  border: 1px solid #1a2550;
-  border-radius: 3px;
-  position: relative;
-}
-.flap::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
-  background: rgb(0 0 0 / 0.55);
-}
-
-@keyframes flap-in {
-  from {
-    transform: rotateX(-90deg);
-    opacity: 0.2;
-  }
-  to {
-    transform: rotateX(0);
-    opacity: 1;
-  }
-}
-.flap-in {
-  animation: flap-in 0.45s ease-out both;
-  transform-origin: center top;
-}
-
-@keyframes dash {
-  to {
-    stroke-dashoffset: -40;
-  }
-}
-.route-dash {
-  stroke-dasharray: 6 6;
-  animation: dash 1.6s linear infinite;
+/* Diagonal hatching used in drawings and empty cells. */
+.hatch {
+  background-image: repeating-linear-gradient(135deg, transparent 0 7px, rgb(11 10 9 / 0.09) 7px 8px);
 }
 
 @keyframes ticker {
@@ -128,9 +100,22 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   }
 }
 
+@keyframes fill-in {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+.fill-in {
+  animation: fill-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transform-origin: bottom;
+  transform-box: fill-box;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .flap-in,
-  .route-dash {
+  .fill-in {
     animation: none;
   }
 }
