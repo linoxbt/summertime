@@ -1,0 +1,10 @@
+**/node_modules
+**/.next
+**/.netlify
+**/.daml
+.run
+log
+.git
+application
+docs
+tests
