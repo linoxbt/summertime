@@ -155,7 +155,8 @@ try {
   log("Bola sees his own booking and nothing of Ada's dispute");
 
   // ---- Privacy explorer ----------------------------------------------------------------------
-  const op = await signIn(browser, "Summertime \\(operator\\)", { viewport: { width: 1440, height: 1000 } });
+  // Any demo account may open the explorer; the operator may be a real account (OPERATOR_EMAIL).
+  const op = await signIn(browser, "Harbor Bridge Freight", { viewport: { width: 1440, height: 1000 } });
   await op.goto(`${WEB}/explorer`);
   await op.waitForTimeout(3000);
   await op.screenshot({ path: `${SHOTS}explorer.png`, fullPage: true });
