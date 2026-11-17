@@ -16,7 +16,6 @@ const PAGES = [
   { href: "/questions", label: "Questions" },
   { href: "/privacy", label: "Trust model" },
   { href: "/login", label: "Sign in" },
-  { href: "/signup", label: "Create account" },
   { href: "/demo", label: "Demo" },
 ];
 
