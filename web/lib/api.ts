@@ -44,7 +44,7 @@ const MESSAGES: Record<string, string> = {
   LEDGER_REJECTED: "The ledger rejected this action. Nothing was changed.",
   NETWORK: "We couldn't reach Summertime. Check your connection and try again.",
   BACKEND_OFFLINE: "Demo backend offline.",
-  NO_ACCOUNT: "No account uses that email. Try a demo account below.",
+  PROFILE_REQUIRED: "Add your company name and role to create your account.",
   INVALID_CODE: "That code isn't right. Check it and try again.",
   CODE_EXPIRED: "That code has expired. Request a new one.",
   TOO_MANY_CODES: "Too many codes requested. Try again in a few minutes.",

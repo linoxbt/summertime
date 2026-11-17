@@ -20,8 +20,11 @@ interface DemoAccount {
 interface CodeSent {
   sent: boolean;
   expiresInSeconds: number;
+  accountExists: boolean;
   demoCode?: string;
 }
+
+type NewRole = "importer" | "forwarder";
 
 const ROLE_LABEL: Record<SessionUser["role"], string> = {
   forwarder: "Forwarder",
@@ -44,6 +47,10 @@ export default function LoginPage() {
   const [busy, setBusy] = useState<"send" | "verify" | string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [cooldown, setCooldown] = useState(0);
+  const [isNew, setIsNew] = useState(false);
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState<NewRole>("importer");
+  const profileReady = !isNew || company.trim().length >= 2;
   const codeRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -57,8 +64,8 @@ export default function LoginPage() {
   }, [cooldown]);
 
   useEffect(() => {
-    if (step === "code") codeRef.current?.focus();
-  }, [step]);
+    if (step === "code" && !isNew) codeRef.current?.focus();
+  }, [step, isNew]);
 
   function done(user: SessionUser) {
     qc.setQueryData(["session"], user);
@@ -72,6 +79,7 @@ export default function LoginPage() {
     try {
       const r = await api.post<CodeSent>("/auth/code/start", { email }, newIdempotencyKey());
       setDemoCode(r.demoCode ?? null);
+      setIsNew(!r.accountExists);
       setCode("");
       setStep("code");
       setCooldown(RESEND_SECONDS);
@@ -83,11 +91,12 @@ export default function LoginPage() {
   }
 
   async function verify(value = code) {
-    if (!/^\d{6}$/.test(value)) return;
+    if (!/^\d{6}$/.test(value) || !profileReady) return;
     setBusy("verify");
     setError(null);
     try {
-      done(await api.post<SessionUser>("/auth/code/verify", { email, code: value }, newIdempotencyKey()));
+      const body = isNew ? { email, code: value, profile: { displayName: company.trim(), role } } : { email, code: value };
+      done(await api.post<SessionUser>("/auth/code/verify", body, newIdempotencyKey()));
     } catch (err) {
       setError(err);
       setBusy(null);
@@ -154,8 +163,8 @@ export default function LoginPage() {
               {step === "email" ? (
                 <form onSubmit={sendCode} className="fade-in space-y-5" noValidate>
                   <div>
-                    <h2 className="text-xl font-semibold tracking-tight text-fg">Sign in with email</h2>
-                    <p className="mt-1 text-sm text-muted">We&apos;ll send you a 6-digit code.</p>
+                    <h2 className="text-xl font-semibold tracking-tight text-fg">Sign in or create an account</h2>
+                    <p className="mt-1 text-sm text-muted">We&apos;ll send you a 6-digit code. New emails get a new account.</p>
                   </div>
                   <label className="block">
                     <span className="label text-muted">Email</span>
@@ -186,7 +195,7 @@ export default function LoginPage() {
                   noValidate
                 >
                   <div>
-                    <h2 className="text-xl font-semibold tracking-tight text-fg">Enter your code</h2>
+                    <h2 className="text-xl font-semibold tracking-tight text-fg">{isNew ? "Create your account" : "Enter your code"}</h2>
                     <p className="mt-1 text-sm text-muted">
                       Sent to <span className="font-medium text-fg">{email}</span> ·{" "}
                       <button
@@ -202,6 +211,41 @@ export default function LoginPage() {
                     </p>
                   </div>
 
+                  {isNew && (
+                    <div className="fade-in space-y-4 rounded-2xl bg-page p-4">
+                      <label className="block">
+                        <span className="label text-muted">Company name</span>
+                        <input
+                          name="company"
+                          autoComplete="organization"
+                          required
+                          value={company}
+                          onChange={(e) => setCompany(e.target.value)}
+                          placeholder="Your company"
+                          className={cx(inputClass, "mt-1.5 min-h-12 text-base")}
+                          autoFocus
+                        />
+                      </label>
+                      <fieldset>
+                        <legend className="label text-muted">I am</legend>
+                        <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-full bg-panel-2 p-1">
+                          {(["importer", "forwarder"] as const).map((r) => (
+                            <label
+                              key={r}
+                              className={cx(
+                                "flex min-h-10 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-link",
+                                role === r ? "bg-fg text-page shadow-soft" : "text-muted hover:text-fg",
+                              )}
+                            >
+                              <input type="radio" name="role" value={r} checked={role === r} onChange={() => setRole(r)} className="sr-only" />
+                              {r === "importer" ? "An importer" : "A forwarder"}
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    </div>
+                  )}
+
                   {demoCode && (
                     <div className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-line-strong bg-page px-4 py-3">
                       <div>
@@ -214,7 +258,7 @@ export default function LoginPage() {
                         className="min-h-9 px-4"
                         onClick={() => {
                           setCode(demoCode);
-                          void verify(demoCode);
+                          if (profileReady) void verify(demoCode);
                         }}
                       >
                         Fill in
@@ -235,15 +279,15 @@ export default function LoginPage() {
                       onChange={(e) => {
                         const v = e.target.value.replace(/\D/g, "").slice(0, 6);
                         setCode(v);
-                        if (v.length === 6) void verify(v);
+                        if (v.length === 6 && profileReady) void verify(v);
                       }}
                       placeholder="••••••"
                       className={cx(inputClass, "mt-1.5 min-h-14 text-center font-mono text-2xl tracking-[0.5em]")}
                     />
                   </label>
                   <InlineError error={error} />
-                  <Button type="submit" className="min-h-12 w-full text-base" busy={busy === "verify"} disabled={code.length !== 6}>
-                    Sign in
+                  <Button type="submit" className="min-h-12 w-full text-base" busy={busy === "verify"} disabled={code.length !== 6 || !profileReady}>
+                    {isNew ? "Create account" : "Sign in"}
                   </Button>
                   <p className="text-center text-sm text-muted">
                     {cooldown > 0 ? (

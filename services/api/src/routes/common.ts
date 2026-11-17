@@ -1,4 +1,4 @@
-import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { T, formatCbm, formatUsdc, type ExplorerContract, type ExplorerPane, type TemplateName } from "@summertime/ledger";
@@ -36,7 +36,6 @@ export function commonRoutes(app: FastifyInstance, ctx: AppContext) {
     const { email } = z.object({ email: emailField }).parse(req.body);
     if (!ctx.config.demoMode) throw new ApiError(503, "CODE_DELIVERY_UNAVAILABLE", "Email delivery is not configured yet.");
     const user = await ctx.db.query<{ id: string }>("SELECT id FROM users WHERE lower(email) = $1", [email]);
-    if (!user.rows[0]) throw new ApiError(404, "NO_ACCOUNT", "No account uses that email.");
     const recent = await ctx.db.query<{ n: string }>(
       "SELECT count(*) AS n FROM login_codes WHERE lower(email) = $1 AND created_at > now() - interval '10 minutes'",
       [email],
@@ -48,11 +47,19 @@ export function commonRoutes(app: FastifyInstance, ctx: AppContext) {
       email,
       codeHash(email, code),
     ]);
-    return { data: { sent: true, expiresInSeconds: CODE_TTL_MINUTES * 60, demoCode: code } };
+    return { data: { sent: true, expiresInSeconds: CODE_TTL_MINUTES * 60, accountExists: Boolean(user.rows[0]), demoCode: code } };
   });
 
   app.post("/auth/code/verify", async (req, reply) => {
-    const { email, code } = z.object({ email: emailField, code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code") }).parse(req.body);
+    const { email, code, profile } = z
+      .object({
+        email: emailField,
+        code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code"),
+        profile: z.object({ displayName: z.string().trim().min(2).max(60), role: z.enum(["importer", "forwarder"]) }).optional(),
+      })
+      .parse(req.body);
+    const existing = await ctx.db.query<{ id: string }>("SELECT id FROM users WHERE lower(email) = $1", [email]);
+    if (!existing.rows[0] && !profile) throw new ApiError(400, "PROFILE_REQUIRED", "Tell us your company name and role to create your account.");
     const r = await ctx.db.query<{ id: string; code_hash: string; attempts: number }>(
       "SELECT id, code_hash, attempts FROM login_codes WHERE lower(email) = $1 AND consumed_at IS NULL AND expires_at > now() ORDER BY created_at DESC LIMIT 1",
       [email],
@@ -68,10 +75,9 @@ export function commonRoutes(app: FastifyInstance, ctx: AppContext) {
     }
     const used = await ctx.db.query("UPDATE login_codes SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL RETURNING id", [row.id]);
     if (!used.rowCount) throw new ApiError(400, "CODE_EXPIRED", "That code has expired. Request a new one.");
-    const user = await ctx.db.query<{ id: string }>("SELECT id FROM users WHERE lower(email) = $1", [email]);
-    if (!user.rows[0]) throw new ApiError(400, "INVALID_CODE", "That code isn't right.");
-    await createSession(ctx, user.rows[0].id, reply);
-    return { data: await userDto(user.rows[0].id) };
+    const userId = existing.rows[0]?.id ?? (await createAccount(ctx, email, profile!));
+    await createSession(ctx, userId, reply);
+    return { data: await userDto(userId) };
   });
 
   // Demo shortcut: sign in by choosing a seeded account.
@@ -192,4 +198,57 @@ async function summarize(ctx: AppContext, p: Record<string, unknown>): Promise<R
   if (terms?.thresholdMilliCbm && !out.reserved) out.threshold = `${formatCbm(terms.thresholdMilliCbm)} CBM`;
   if (terms?.bondMicroUsdc && "bondCid" in p) out.bond = `${formatUsdc(terms.bondMicroUsdc)} USDCx`;
   return out;
+}
+
+/**
+ * Create a pilot-hosted account for a new email: a ledger party and Ledger API user of its
+ * own, the user row and party link, and (demo mode) a test USDCx balance from the registry.
+ * Returns the users.id. Safe against two sign-ups racing for the same email.
+ */
+async function createAccount(ctx: AppContext, email: string, profile: { displayName: string; role: "importer" | "forwarder" }): Promise<string> {
+  const base =
+    email
+      .split("@")[0]!
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 24) || "user";
+  const handle = `${base}-${randomBytes(3).toString("hex")}`;
+  const party = await ctx.ledger.allocateParty(`${handle}-${Date.now().toString(36)}`);
+  await ctx.ledger.createUser(`u-${handle}`, party, [party]);
+
+  const client = await ctx.db.connect();
+  let userId: string;
+  try {
+    await client.query("BEGIN");
+    const u = await client.query<{ id: string }>(
+      "INSERT INTO users (handle, display_name, role, email) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING id",
+      [handle, profile.displayName, profile.role, email],
+    );
+    if (!u.rows[0]) {
+      // Someone else created this email's account first; use theirs.
+      await client.query("ROLLBACK");
+      const other = await ctx.db.query<{ id: string }>("SELECT id FROM users WHERE lower(email) = $1", [email]);
+      return other.rows[0]!.id;
+    }
+    userId = u.rows[0].id;
+    await client.query("INSERT INTO party_links (user_id, party_id, mode) VALUES ($1, $2, 'pilot')", [userId, party]);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  if (ctx.config.demoMode) {
+    const amount = profile.role === "forwarder" ? "5000" : "20000";
+    const r = await fetch(new URL("/dev/mint", ctx.config.registryUrl), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ owner: party, amount }),
+    }).catch(() => undefined);
+    if (!r?.ok) ctx.log.warn({ handle }, "could not fund the new account; the faucet can top it up");
+  }
+  return userId;
 }

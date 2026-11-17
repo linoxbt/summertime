@@ -47,7 +47,6 @@ async function main() {
   const op = await login("operator");
 
   // Email one-time codes.
-  assert.equal((await call(undefined, "POST", "/auth/code/start", { email: "nobody@example.com" })).code, "NO_ACCOUNT");
   const started = await call(undefined, "POST", "/auth/code/start", { email: "Ada@Summertime.demo" });
   assert.equal(started.status, 200);
   const demoCode = started.data.demoCode as string;
@@ -66,7 +65,34 @@ async function main() {
   const again = await call(undefined, "POST", "/auth/code/start", { email: "bola@summertime.demo" });
   for (let i = 0; i < 5; i++) await call(undefined, "POST", "/auth/code/verify", { email: "bola@summertime.demo", code: again.data.demoCode === "999999" ? "888888" : "999999" });
   assert.equal((await call(undefined, "POST", "/auth/code/verify", { email: "bola@summertime.demo", code: again.data.demoCode })).code, "TOO_MANY_ATTEMPTS");
-  check("email codes: unknown email refused, wrong code refused, right code signs in once, attempts capped");
+  check("email codes: wrong code refused, right code signs in once, attempts capped");
+
+  // Sign-up: a new email gets an account of its own on first sign-in.
+  const newEmail = `guard-${Date.now()}@example.com`;
+  const fresh = await call(undefined, "POST", "/auth/code/start", { email: newEmail });
+  assert.equal(fresh.data.accountExists, false);
+  assert.equal((await call(undefined, "POST", "/auth/code/verify", { email: newEmail, code: fresh.data.demoCode })).code, "PROFILE_REQUIRED");
+  const signupRes = await fetch(`${API}/auth/code/verify`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: newEmail, code: fresh.data.demoCode, profile: { displayName: "Guard Imports Ltd", role: "importer" } }),
+  });
+  assert.equal(signupRes.status, 200);
+  const newCookie = (signupRes.headers.get("set-cookie") ?? "").split(";")[0]!;
+  const newMe = (await call(newCookie, "GET", "/auth/me")).data;
+  assert.equal(newMe.role, "importer");
+  assert.equal(newMe.displayName, "Guard Imports Ltd");
+  await until("the new account is funded", async () => (await call(newCookie, "GET", "/me/balance")).data?.available?.micro !== "0");
+  const back = await call(undefined, "POST", "/auth/code/start", { email: newEmail.toUpperCase() });
+  assert.equal(back.data.accountExists, true);
+  const backRes = await fetch(`${API}/auth/code/verify`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: newEmail, code: back.data.demoCode }),
+  });
+  assert.equal(backRes.status, 200);
+  assert.equal(((await backRes.json()) as { data: { id: string } }).data.id, newMe.id);
+  check("sign-up: a new email creates a funded account of its own; signing in again reuses it");
 
   // Authentication and roles.
   assert.equal((await call(undefined, "GET", "/campaigns")).status, 401);
