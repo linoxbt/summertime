@@ -122,11 +122,16 @@ export function authRoutes(app: FastifyInstance, ctx: AppContext) {
           `INSERT INTO login_codes (email, code_hash, purpose, expires_at) VALUES ($1, $2, 'reset', now() + interval '${RESET_TTL_MINUTES} minutes')`,
           [email, codeHash(email, code)],
         );
-        await sendMail(ctx, {
-          to: email,
-          subject: `Your Summertime reset code: ${code}`,
-          text: `Your Summertime password reset code is ${code}. It expires in ${RESET_TTL_MINUTES} minutes.\n\nIf you didn't ask for this, you can ignore this email.`,
-        });
+        try {
+          await sendMail(ctx, {
+            to: email,
+            subject: `Your Summertime reset code: ${code}`,
+            text: `Your Summertime password reset code is ${code}. It expires in ${RESET_TTL_MINUTES} minutes.\n\nIf you didn't ask for this, you can ignore this email.`,
+          });
+        } catch (e) {
+          ctx.log.error({ err: e instanceof Error ? e.message : String(e) }, "password reset email failed");
+          throw new ApiError(502, "EMAIL_FAILED", "We couldn't send the email. Try again in a moment.");
+        }
       }
     }
     return { data: { sent: true } };

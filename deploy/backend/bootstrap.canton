@@ -1,0 +1,23 @@
+// Runs on every start. The first start creates the synchronizer; later starts find it in
+// Postgres and only reconnect. Uploading an already-known DAR is a no-op.
+
+if (!sequencer1.health.initialized()) {
+  println("creating the synchronizer")
+  bootstrap.synchronizer(
+    synchronizerName = "summertime",
+    sequencers = Seq(sequencer1),
+    mediators = Seq(mediator1),
+    synchronizerOwners = Seq(sequencer1),
+    synchronizerThreshold = PositiveInt.one,
+    staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  )
+}
+
+if (participant1.synchronizers.list_registered().isEmpty) {
+  participant1.synchronizers.connect_local(sequencer1, alias = "summertime")
+} else {
+  participant1.synchronizers.reconnect_all()
+}
+
+sys.env("SUMMERTIME_DARS").split(",").foreach(d => participant1.dars.upload(d))
+println("SUMMERTIME LEDGER READY")

@@ -9,6 +9,7 @@
 // ledger was reset (the sandbox is in-memory), the application database is reset too.
 
 import { LedgerError, T, TestToken } from "@summertime/ledger";
+import { createHash } from "node:crypto";
 import { hashPassword } from "./passwords.ts";
 import { CommandRunner, createDb, createLedger, createLogger, getSystemConfig, loadConfig, migrate, setSystemConfig, type Deployment } from "@summertime/platform";
 
@@ -50,18 +51,74 @@ async function syncOperatorLogin(): Promise<void> {
   const email = process.env.OPERATOR_EMAIL?.trim().toLowerCase();
   const password = process.env.OPERATOR_PASSWORD;
   if (email && password) {
-    await db.query(
-      "UPDATE users SET kind = 'member', email = $1, password_hash = $2, password_changed_at = now() WHERE handle = 'operator'",
-      [email, await hashPassword(password)],
-    );
-    log.info("operator signs in with OPERATOR_EMAIL");
+    // Apply the variables only when they change, so a password the operator later changes in
+    // the app is not overwritten on every restart.
+    const fingerprint = createHash("sha256").update(config.sessionSecret).update("\0operator\0").update(email).update("\0").update(password).digest("hex");
+    if ((await getSystemConfig<string>(db, "operator_login")) !== fingerprint) {
+      await db.query(
+        "UPDATE users SET kind = 'member', email = $1, password_hash = $2, password_changed_at = now() WHERE handle = 'operator'",
+        [email, await hashPassword(password)],
+      );
+      await setSystemConfig(db, "operator_login", fingerprint);
+      log.info("operator login set from OPERATOR_EMAIL and OPERATOR_PASSWORD");
+    }
   } else {
     await db.query("UPDATE users SET kind = 'demo', email = 'operator@summertime.demo', password_hash = NULL WHERE handle = 'operator'");
   }
 }
 
+/**
+ * A participant compiles each package the first time it is used after a start, which can
+ * take longer than a request timeout. On an existing ledger, run one throwaway transaction
+ * per package (create and archive in one command) before the API takes traffic.
+ */
+async function warmUp(d: Deployment): Promise<void> {
+  const stamp = Date.now();
+  const steps: { name: string; actAs: string; templateId: string; createArguments: unknown }[] = [
+    {
+      name: "summertime-core",
+      actAs: d.operatorParty,
+      templateId: T.ProgressView,
+      createArguments: {
+        forwarder: d.operatorParty,
+        importer: d.operatorParty,
+        campaignId: `warm-up-${stamp}`,
+        reservedCbmRounded: "0",
+        participantCount: null,
+        hidden: true,
+        asOf: new Date().toISOString(),
+      },
+    },
+    {
+      name: "token",
+      actAs: d.registryAdmin,
+      templateId: TestToken.Token,
+      createArguments: {
+        holding: { owner: d.registryAdmin, instrumentId: { admin: d.registryAdmin, id: d.instrument.id }, amount: "0.000001", lock: null, meta: { values: {} } },
+      },
+    },
+  ];
+  for (const s of steps) {
+    const t0 = Date.now();
+    for (let attempt = 1; attempt <= 6; attempt++) {
+      try {
+        await ledger.submit({
+          commandId: `warm-up:${s.name}:${stamp}:${attempt}`,
+          actAs: [s.actAs],
+          commands: [{ CreateAndExerciseCommand: { templateId: s.templateId, createArguments: s.createArguments, choice: "Archive", choiceArgument: {} } }],
+        });
+        log.info({ pkg: s.name, ms: Date.now() - t0 }, "warmed up");
+        break;
+      } catch (e) {
+        if (attempt === 6) log.warn({ pkg: s.name, err: e instanceof Error ? e.message.slice(0, 200) : String(e) }, "warm-up failed; continuing");
+      }
+    }
+  }
+}
+
 if (existing && onLedger.has(existing.operatorParty) && onLedger.has(existing.registryAdmin) && !process.argv.includes("--reset")) {
   log.info({ operator: existing.operatorParty }, "deployment already bootstrapped");
+  await warmUp(existing);
   await syncOperatorLogin();
   await db.end();
   process.exit(0);

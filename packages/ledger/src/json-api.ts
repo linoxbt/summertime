@@ -63,7 +63,8 @@ export interface DisclosedContract {
 
 export type Command =
   | { CreateCommand: { templateId: string; createArguments: unknown } }
-  | { ExerciseCommand: { templateId: string; contractId: string; choice: string; choiceArgument: unknown } };
+  | { ExerciseCommand: { templateId: string; contractId: string; choice: string; choiceArgument: unknown } }
+  | { CreateAndExerciseCommand: { templateId: string; createArguments: unknown; choice: string; choiceArgument: unknown } };
 
 export interface Submission {
   commandId: string;

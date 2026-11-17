@@ -1,7 +1,7 @@
-# Summertime backend: Canton sandbox, dev token registry, API and worker in one container.
-# The sandbox ledger lives in memory, so these start and restart together; on a fresh
-# ledger, bootstrap re-seeds parties and demo balances and resets the app database to match.
-# Postgres runs separately (DATABASE_URL). Build from the repository root:
+# Summertime backend: the ledger (Canton sequencer, mediator and participant), the dev token
+# registry, the API and the worker in one container. The ledger stores its state in Postgres
+# (canton_* databases on the DATABASE_URL server), so it survives restarts and redeploys.
+# Build from the repository root:
 #   docker build -f deploy/backend/Dockerfile .
 
 # ---- Stage 1: compile the Daml package and take the Canton jar from the Daml SDK
@@ -45,7 +45,8 @@ RUN npm ci --no-audit --no-fund \
 COPY packages packages
 COPY services services
 COPY --from=daml /out /opt/summertime
-COPY deploy/backend/start.sh /app/start.sh
+COPY deploy/backend /app/deploy/backend
+RUN chmod +x /app/deploy/backend/start.sh
 
 ENV NODE_ENV=production \
     DEMO_MODE=true \
@@ -53,4 +54,4 @@ ENV NODE_ENV=production \
     OPS_INTERVAL_SECONDS=15 \
     PORT=8080
 EXPOSE 8080
-CMD ["/app/start.sh"]
+CMD ["/app/deploy/backend/start.sh"]

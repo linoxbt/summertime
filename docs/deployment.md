@@ -20,10 +20,16 @@ Live: https://summertime-app.netlify.app
 
 ## Backend (Railway)
 
-One container runs the Canton sandbox, the dev token registry, the worker and the API
-(`deploy/backend/start.sh`). The sandbox ledger is in memory, so they start and restart
-together: on a fresh ledger, bootstrap re-creates the parties and demo balances and clears
-the application database to match. **Every restart or redeploy resets the demo.**
+One container runs the ledger (a Canton sequencer, mediator and participant in one
+process), the dev token registry, the worker and the API (`deploy/backend/start.sh`).
+
+**The ledger is persistent.** Each Canton node, and the sequencer's ordering layer, stores
+its state in its own Postgres database on the same server as `DATABASE_URL`
+(`canton_sequencer`, `canton_sequencer_driver`, `canton_mediator`, `canton_participant`;
+created on first start). Accounts, parties, balances and campaigns survive restarts,
+redeploys and crashes (tested with a forced kill). Bootstrap seeds only a new, empty ledger;
+on an existing one it runs one throwaway transaction per package so the first user action
+after a start is fast.
 
 | Variable | Value |
 |---|---|
@@ -33,19 +39,20 @@ the application database to match. **Every restart or redeploy resets the demo.*
 | `PROGRESS_INTERVAL_SECONDS`, `OPS_INTERVAL_SECONDS` | `15` |
 | `NODE_ENV` | `production` (secure cookies) |
 | `JAVA_OPTS` | `-Xms512m -Xmx2g` |
-| `RESEND_API_KEY`, `EMAIL_FROM` | optional: email provider for password-reset codes. Without it, production refuses reset (`EMAIL_UNAVAILABLE`); development writes mail to the `mail_outbox` table |
-| `OPERATOR_EMAIL`, `OPERATOR_PASSWORD` | optional: the Summertime operator signs in for real with these, and leaves the demo. Without them the operator is a demo account |
+| `BREVO_API_KEY`, `EMAIL_FROM` | email for password-reset codes through Brevo, which needs no custom domain: `EMAIL_FROM` is the single sender address verified in Brevo. (`RESEND_API_KEY` also works but needs a verified domain.) Without a provider, production refuses reset (`EMAIL_UNAVAILABLE`); development writes mail to the `mail_outbox` table |
+| `OPERATOR_EMAIL`, `OPERATOR_PASSWORD` | the Summertime operator's real sign-in (set: `operator@summertime.app`). Applied when the values change; a password changed later in the app is kept. Without them the operator is a demo account |
 
 Service settings: Dockerfile `deploy/backend/Dockerfile`, restart on failure, watch paths
 `daml/**`, `packages/**`, `services/**`, `deploy/backend/**`, `package*.json`. Needs about
 2.5 GB of memory.
 
-**No health check and no overlap, on purpose.** Old and new containers share the database,
-and a new container's bootstrap resets it for its fresh ledger. If both ran at once (as a
-health-checked, zero-downtime deploy does), the old one would keep serving a database
-that no longer matches its ledger. Without a health check, Railway stops the old container
-as soon as the new one starts: about a minute of downtime per deploy, then a clean demo.
-A standby worker also waits for the leader lock instead of exiting.
+**One ledger at a time.** Two containers must never run the ledger against the same
+databases. Each container first takes a Postgres advisory lock (`ledger-lock.mjs`) and holds
+it for its lifetime; a new container waits until the old one has stopped. For the same
+reason the service has no health check: a health-checked, zero-downtime deploy would keep
+the old container running until the new one is healthy, which it cannot be while it waits.
+A deploy therefore has about a minute of downtime; no data is lost. A standby worker also
+waits for the worker leader lock instead of exiting.
 
 Build and run it locally:
 
@@ -56,6 +63,8 @@ docker run --rm -p 8080:8080 -e DATABASE_URL=postgres://... -e SESSION_SECRET=..
 
 ## Not for real funds
 
-This hosting is a demo: an in-memory Canton sandbox, test USDCx and a dev token registry.
-A real deployment needs a Canton participant on DevNet/MainNet, real USDCx, persistent
-storage and the remaining items in the spec (real sign-in, own-wallet mode, audit).
+This hosting is a test network: a single-node Canton ledger of our own, test USDCx and a dev
+token registry.
+Moving to the real network needs a participant on DevNet (then MainNet) and real USDCx (or
+Canton Coin as the spec's fallback); the code is instrument-agnostic and only configuration
+changes (see `docs/development.md`, "Moving to DevNet"). Own-wallet mode and an audit remain.

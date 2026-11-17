@@ -47,6 +47,7 @@ const MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: "Email or password is incorrect.",
   EMAIL_TAKEN: "An account with that email already exists. Sign in instead.",
   EMAIL_UNAVAILABLE: "Password reset by email isn't available yet.",
+  EMAIL_FAILED: "We couldn't send the email. Try again in a moment.",
   INVALID_CODE: "That code isn't right. Check it and try again.",
   CODE_EXPIRED: "That code has expired. Request a new one.",
   TOO_MANY_CODES: "Too many codes requested. Try again in a few minutes.",
