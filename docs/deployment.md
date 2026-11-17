@@ -34,9 +34,16 @@ the application database to match. **Every restart or redeploy resets the demo.*
 | `NODE_ENV` | `production` (secure cookies) |
 | `JAVA_OPTS` | `-Xms512m -Xmx2g` |
 
-Service settings: Dockerfile `deploy/backend/Dockerfile`, health check `/healthz` (600 s),
-restart on failure, watch paths `daml/**`, `packages/**`, `services/**`,
-`deploy/backend/**`, `package*.json`. Needs about 2.5 GB of memory.
+Service settings: Dockerfile `deploy/backend/Dockerfile`, restart on failure, watch paths
+`daml/**`, `packages/**`, `services/**`, `deploy/backend/**`, `package*.json`. Needs about
+2.5 GB of memory.
+
+**No health check and no overlap, on purpose.** Old and new containers share the database,
+and a new container's bootstrap resets it for its fresh ledger. If both ran at once (as a
+health-checked, zero-downtime deploy does), the old one would keep serving a database
+that no longer matches its ledger. Without a health check, Railway stops the old container
+as soon as the new one starts: about a minute of downtime per deploy, then a clean demo.
+A standby worker also waits for the leader lock instead of exiting.
 
 Build and run it locally:
 

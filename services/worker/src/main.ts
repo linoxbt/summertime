@@ -21,17 +21,22 @@ const db = createDb(config.databaseUrl);
 const ledger = createLedger(config);
 await migrate(db);
 
-const lock = await acquireLeaderLock(db, WORKER_ID);
-if (!lock) {
-  log.error("another worker instance holds the leader lock; exiting");
-  process.exit(1);
-}
-
 let stopping = false;
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     stopping = true;
   });
+}
+
+// One active worker. A second instance (for example during a deploy) stands by until the
+// first one stops and Postgres releases its advisory lock.
+let lock = await acquireLeaderLock(db, WORKER_ID);
+if (!lock) log.warn("another worker instance holds the leader lock; standing by");
+while (!lock) {
+  if (stopping) process.exit(0);
+  await new Promise((r) => setTimeout(r, 5000));
+  lock = await acquireLeaderLock(db, WORKER_ID);
+  if (lock) log.info("acquired the leader lock");
 }
 
 async function storedOffset(): Promise<number> {
