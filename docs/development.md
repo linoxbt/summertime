@@ -57,8 +57,15 @@ The sandbox is in-memory: restarting it clears the ledger, and the next bootstra
 | `npm run e2e:ops` | Bond custody reconciliation: simulated operator misuse raises an alert, new campaigns are held, and both recover once custody reconciles (about 1 minute) |
 | `npm run e2e:a11y` | axe-core WCAG 2.1 A/AA audit of every page at 360 px and 1280 px, plus a phone overflow check (run after `e2e:ui`) |
 | `npm run e2e:ui` | The success journey in a browser: forwarder on desktop, six importers on phone-sized screens |
+| `tests/multi-participant/run.sh` | Spec 26.2: a campaign across three Canton participants (Summertime, importer A, importer B). No transaction delivered to an importer's participant mentions the other importer; the one settlement transaction reaches each importer as its own leg only (about 2 minutes; starts its own network) |
 
-CI (`.github/workflows/ci.yml`) runs the Daml tests, typecheck, unit tests and web build on every push, then starts the full stack against a Canton sandbox and Postgres and runs every end-to-end suite.
+CI (`.github/workflows/ci.yml`) runs the Daml tests, typecheck, unit tests and web build on every push, the multi-participant privacy test, and then starts the full stack against a Canton sandbox and Postgres and runs every end-to-end suite.
+
+### Accounts in development
+
+Real accounts sign up at `/signup` and sign in at `/login` with email and password. Without an
+email provider, password-reset mail is written to the `mail_outbox` table (and the API log)
+instead of being sent. The seeded demo accounts are at `/demo` and have no password.
 
 ## Configuration
 
@@ -70,7 +77,9 @@ CI (`.github/workflows/ci.yml`) runs the Daml tests, typecheck, unit tests and w
 | `DATABASE_URL` | `postgres://summertime:summertime@127.0.0.1:5432/summertime` | Application database |
 | `API_PORT` | `7580` | API port |
 | `SESSION_SECRET` | dev value | Session token hashing secret; set in every real deployment |
-| `DEMO_MODE` | `true` | Demo sign-in, faucet and privacy explorer. Must be `false` outside demos |
+| `DEMO_MODE` | `true` | The demo at `/demo` (seeded accounts, privacy explorer). Real accounts work either way |
+| `RESEND_API_KEY`, `EMAIL_FROM` | — | Email provider for password-reset codes; without it, production refuses reset and development uses `mail_outbox` |
+| `OPERATOR_EMAIL`, `OPERATOR_PASSWORD` | — | Real sign-in for the Summertime operator (otherwise the operator is a demo account) |
 | `PROGRESS_INTERVAL_SECONDS` | `3600` (`15` in `dev.sh`) | Progress publication schedule (F-6) |
 | `WORKER_TICK_SECONDS` | `2` | Worker pass interval |
 | `OPS_INTERVAL_SECONDS` | `60` (`15` in `dev.sh`) | Operational checks interval (spec 28) |
