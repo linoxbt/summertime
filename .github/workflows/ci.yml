@@ -10,6 +10,9 @@ concurrency:
 
 env:
   DAML_SDK_VERSION: "3.7.1"
+  # On CI (CI=true) Canton refuses to pick a protocol version implicitly and the sandbox
+  # exits during bootstrap; let it use the release's default.
+  CANTON_AUTOMATIC_PROTOCOL_VERSION: "1"
 
 jobs:
   daml:
