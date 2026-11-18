@@ -153,7 +153,8 @@ try {
   await bola.getByRole("link", { name: TITLE_RE }).first().click();
   await bola.getByText("HBF-GZ-LOS-0412").waitFor({ timeout: 30_000 });
   const bolaText = await bola.locator("body").innerText();
-  if (/cartons missing|Ada/i.test(bolaText)) throw new Error("Bola can see Ada's dispute");
+  // Look for Ada's name and dispute text, not the letters "ada": the page shows hex ledger IDs.
+  if (/cartons missing|Ada Phone Accessories/i.test(bolaText)) throw new Error("Bola can see Ada's dispute");
   log("Bola sees his own booking and nothing of Ada's dispute");
 
   // ---- Privacy explorer ----------------------------------------------------------------------
