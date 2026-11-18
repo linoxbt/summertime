@@ -15,7 +15,7 @@ export default function ImporterHome() {
   return (
     <AppShell role="importer">
       <PageHeader title="My space" subtitle={<PrivacyLine />} action={<BalanceChip />} />
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 [&>*]:min-w-0 lg:grid-cols-2">
         <Invitations />
         <Positions />
       </div>

@@ -106,7 +106,7 @@ export function ForwarderAftercare({ campaign, onDone }: { campaign: ForwarderCa
             <Field label="Booking reference">
               <input className={inputClass} value={ref} onChange={(e) => setRef(e.target.value)} maxLength={64} />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-3 [&>*]:min-w-0 sm:grid-cols-2">
               <Field label="Estimated departure (ETD)">
                 <input type="date" className={inputClass} value={etd} onChange={(e) => setEtd(e.target.value)} />
               </Field>

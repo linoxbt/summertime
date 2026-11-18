@@ -98,7 +98,7 @@ async function main() {
   for (const c of [fwd, ...importers]) await c.ok("POST", "/dev/faucet", { amountUsdc: "10000" });
 
   // ---- 1. Success ----------------------------------------------------------------------------
-  const ok = await openCampaign(fwd, "E2E success", 150_000, 210_000);
+  const ok = await openCampaign(fwd, `${process.env.TITLE_PREFIX ?? "E2E"} success`, 150_000, 210_000);
   const fwdBefore = BigInt((await fwd.ok<BalanceDto>("GET", "/me/balance")).available.micro);
   await joinAll(fwd, importers, ok, sizes);
   const detail = await fwd.ok<ForwarderCampaignDetail>("GET", `/campaigns/${ok}`);
@@ -132,7 +132,7 @@ async function main() {
   log(`forwarder received 9,000.00 USDCx and its 200.00 USDCx bond back (balance ${fwdAfter / 1_000_000n})`);
 
   // ---- 2. Failure ----------------------------------------------------------------------------
-  const failId = await openCampaign(fwd, "E2E failure", 100_000, 150_000);
+  const failId = await openCampaign(fwd, `${process.env.TITLE_PREFIX ?? "E2E"} failure`, 100_000, 150_000);
   await joinAll(fwd, importers.slice(0, 5), failId, sizes.slice(0, 5));
   const before = await Promise.all(importers.slice(0, 5).map(async (i) => BigInt((await i.ok<BalanceDto>("GET", "/me/balance")).available.micro)));
   const notYet = await fwd.call("POST", `/campaigns/${failId}/execute`);

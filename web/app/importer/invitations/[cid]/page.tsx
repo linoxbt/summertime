@@ -96,7 +96,7 @@ function Reserve({ inv }: { inv: InvitationDto }) {
         </Link>
       </p>
       <PageHeader title={inv.title} subtitle={<PrivacyLine />} action={<BalanceChip showFaucet={false} />} />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 [&>*]:min-w-0 lg:grid-cols-3">
         <div className="min-w-0 space-y-4 lg:col-span-2">
           <Card title="Reserve space">
             <label htmlFor="cbm" className="text-sm font-semibold text-fg">

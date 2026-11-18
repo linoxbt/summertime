@@ -105,7 +105,7 @@ function Position() {
         action={<BalanceChip showFaucet={pos.stage === "awaiting-signature"} />}
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 [&>*]:min-w-0 lg:grid-cols-3">
         <div className="min-w-0 space-y-4 lg:col-span-2">
           <PositionSlip pos={pos} status={<StageBody pos={pos} settledUpdateId={settledReceipt?.updateId} />}>
             {(pos.actions.canCommit || pos.actions.canClaim || pos.actions.canWithdraw || pos.actions.canRelease) && (

@@ -63,7 +63,14 @@ try {
       const key = p.who ?? "anon";
       if (!contexts.has(key)) {
         const ctx = await browser.newContext({ viewport: vp.viewport });
-        if (p.who) {
+        if (p.who && /operator/.test(p.who) && process.env.OPERATOR_EMAIL) {
+          // On the hosted site the operator is a real account: sign in with its password.
+          const res = await fetch(`${API}/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: process.env.OPERATOR_EMAIL, password: process.env.OPERATOR_PASSWORD }) });
+          if (res.status !== 200) throw new Error(`operator sign-in failed: ${res.status}`);
+          const [name, value] = (res.headers.get("set-cookie") ?? "").split(";")[0].split("=");
+          const u = new URL(WEB);
+          await ctx.addCookies([{ name, value, domain: u.hostname, path: "/", secure: u.protocol === "https:", httpOnly: true }]);
+        } else if (p.who) {
           const page = await ctx.newPage();
           await page.goto(`${WEB}/demo`);
           await page.getByRole("button", { name: new RegExp(p.who) }).click();

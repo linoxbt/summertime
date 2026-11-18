@@ -9,6 +9,9 @@
 //      sign-in ends, and the account disappears from lists.
 //
 // Usage: npx tsx tests/e2e/features.e2e.ts   (needs `scripts/dev.sh` running)
+// Against the hosted site: LIVE=1 API_URL=https://…/api OPERATOR_EMAIL=… OPERATOR_PASSWORD=…
+// (no database access: database checks are replaced by API checks, test accounts are deleted
+// at the end, and email delivery is skipped unless the site has an email provider).
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -16,7 +19,8 @@ import pg from "pg";
 import type { ForwarderCampaignDetail, NotificationList, PositionDto } from "@summertime/ledger";
 
 const API = process.env.API_URL ?? "http://localhost:7580";
-const db = new pg.Pool({ connectionString: process.env.DATABASE_URL ?? "postgres://summertime:summertime@127.0.0.1:5432/summertime" });
+const LIVE = Boolean(process.env.LIVE);
+const db = LIVE ? undefined : new pg.Pool({ connectionString: process.env.DATABASE_URL ?? "postgres://summertime:summertime@127.0.0.1:5432/summertime" });
 
 async function call(cookie: string | undefined, method: "GET" | "POST", path: string, body?: unknown) {
   const headers: Record<string, string> = {};
@@ -51,10 +55,13 @@ const check = (n: string) => results.push(`✓ ${n}`);
 
 async function main() {
   const stamp = Date.now();
-  const op = (await call(undefined, "POST", "/auth/demo-login", { handle: "operator" })).cookie;
+  const op = LIVE
+    ? (await call(undefined, "POST", "/auth/login", { email: process.env.OPERATOR_EMAIL, password: process.env.OPERATOR_PASSWORD })).cookie
+    : (await call(undefined, "POST", "/auth/demo-login", { handle: "operator" })).cookie;
+  assert.equal((await call(op, "GET", "/auth/me")).data?.role, "operator", "operator signed in");
 
   // ---- 1. Contact ----------------------------------------------------------------------------
-  const msg = { name: "Ngozi Test", email: `contact-${stamp}@example.com`, company: "Test Imports", topic: "pilot", message: "We ship from Guangzhou monthly and want to try this." };
+  const msg = { name: "Automated test", email: `contact-${stamp}@example.com`, company: "Summertime test", topic: "other", message: "Automated end-to-end test of the contact form. Safe to ignore." };
   assert.equal((await call(undefined, "POST", "/contact", msg)).status, 201);
   assert.equal((await call(undefined, "POST", "/contact", { ...msg, website: "http://spam.example" })).code, "VALIDATION", "honeypot refused");
   assert.equal((await call(undefined, "POST", "/contact", { ...msg, message: "hi" })).code, "VALIDATION", "too short refused");
@@ -111,12 +118,18 @@ async function main() {
   assert.ok(invited.link?.startsWith("/importer/invitations/"));
   assert.ok(!invited.read);
   assert.ok((await notes(imp)).unread >= 1);
-  const mail = await until("invitation email", async () => {
-    const r = await db.query<{ subject: string; body: string }>("SELECT subject, body FROM mail_outbox WHERE lower(to_email) = $1 AND subject LIKE 'New invitation%'", [iEmail]);
-    return r.rows[0];
-  });
-  assert.ok(mail.body.includes("Notify Freight") && mail.body.includes("/importer/invitations/"), "email names the forwarder and links to the invitation");
-  check("a new invitation notifies the importer in the app and by email");
+  if (db) {
+    const mail = await until("invitation email", async () => {
+      const r = await db.query<{ subject: string; body: string }>("SELECT subject, body FROM mail_outbox WHERE lower(to_email) = $1 AND subject LIKE 'New invitation%'", [iEmail]);
+      return r.rows[0];
+    });
+    assert.ok(mail.body.includes("Notify Freight") && mail.body.includes("/importer/invitations/"), "email names the forwarder and links to the invitation");
+    check("a new invitation notifies the importer in the app and by email");
+  } else {
+    assert.ok(invited.body.includes("Notify Freight"), "names the forwarder");
+    const prefs = await ok(imp, "GET", "/me/preferences");
+    check(`a new invitation notifies the importer in the app${prefs.emailAvailable ? " (email provider on)" : " (email delivery not switched on for this site)"}`);
+  }
 
   const invitation = await until("invitation visible", async () =>
     (await ok<{ contractId: string; campaignId: string }[]>(imp, "GET", "/invitations")).find((x) => x.campaignId === campaignId),
@@ -176,26 +189,35 @@ async function main() {
   assert.equal(del.status, 200, `delete: ${del.code} ${del.message}`);
   assert.equal((await call(imp, "GET", "/auth/me")).status, 401, "session ended");
   assert.equal((await call(undefined, "POST", "/auth/login", { email: iEmail, password })).status, 401, "can't sign in any more");
-  const row = (await db.query("SELECT email, display_name, password_hash, deleted_at FROM users WHERE handle = $1", [i.data.handle])).rows[0];
-  assert.equal(row.email, null);
-  assert.equal(row.display_name, "Deleted account");
-  assert.equal(row.password_hash, null);
-  assert.ok(row.deleted_at);
-  assert.equal((await db.query("SELECT 1 FROM notifications n JOIN users u ON u.id = n.user_id WHERE u.handle = $1", [i.data.handle])).rowCount, 0);
-  assert.equal((await db.query("SELECT 1 FROM mail_outbox WHERE lower(to_email) = $1", [iEmail])).rowCount, 0);
+  if (db) {
+    const row = (await db.query("SELECT email, display_name, password_hash, deleted_at FROM users WHERE handle = $1", [i.data.handle])).rows[0];
+    assert.equal(row.email, null);
+    assert.equal(row.display_name, "Deleted account");
+    assert.equal(row.password_hash, null);
+    assert.ok(row.deleted_at);
+    assert.equal((await db.query("SELECT 1 FROM notifications n JOIN users u ON u.id = n.user_id WHERE u.handle = $1", [i.data.handle])).rowCount, 0);
+    assert.equal((await db.query("SELECT 1 FROM mail_outbox WHERE lower(to_email) = $1", [iEmail])).rowCount, 0);
+  }
   assert.ok(!(await ok<{ handle: string }[]>(fwd, "GET", "/importers")).some((x) => x.handle === i.data.handle), "gone from the forwarder's list");
   // The same email can start again as a new account.
-  assert.equal((await call(undefined, "POST", "/auth/signup", { email: iEmail, password, displayName: "Notify Imports Again", role: "importer" })).status, 201);
+  const again = await call(undefined, "POST", "/auth/signup", { email: iEmail, password, displayName: "Notify Imports Again", role: "importer" });
+  assert.equal(again.status, 201);
   check("deletion removes personal data and sign-in; the email can sign up afresh");
+
+  // Clean up: delete the remaining test accounts (the forwarder once its bond is back).
+  assert.equal((await call(again.cookie, "POST", "/auth/account/delete", { confirm: "DELETE" })).status, 200);
+  await until("forwarder account deletable (bond returned)", async () => (await call(fwd, "POST", "/auth/account/delete", { confirm: "DELETE" })).status === 200, 180_000);
+  assert.equal((await call(undefined, "POST", "/auth/login", { email: fEmail, password })).status, 401);
+  check("the forwarder can delete their account once the campaign is done and the bond is back");
 
   console.log(results.join("\n"));
   console.log("FEATURES PASSED");
-  await db.end();
+  await db?.end();
 }
 
 main().catch(async (e) => {
   console.log(results.join("\n"));
   console.error(e);
-  await db.end();
+  await db?.end();
   process.exit(1);
 });

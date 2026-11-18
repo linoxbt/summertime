@@ -12,6 +12,8 @@ const { chromium, devices } = createRequire(import.meta.url)("playwright");
 import { mkdirSync } from "node:fs";
 
 const WEB = process.env.WEB_URL ?? "http://localhost:3000";
+const TITLE = process.env.CAMPAIGN_TITLE ?? "UI test: Guangzhou to Lagos";
+const TITLE_RE = new RegExp(TITLE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 const SHOTS = new URL("../../.run/screens/", import.meta.url).pathname;
 mkdirSync(SHOTS, { recursive: true });
 
@@ -48,7 +50,7 @@ try {
   // ---- Forwarder: propose, bond, invite ----------------------------------------------------
   const fwd = await signIn(browser, "Harbor Bridge Freight", { viewport: { width: 1280, height: 900 } });
   await fwd.goto(`${WEB}/forwarder/new`);
-  await fwd.getByLabel("Campaign title").fill("UI test: Guangzhou to Lagos");
+  await fwd.getByLabel("Campaign title").fill(TITLE);
   await fwd.getByLabel("Container capacity (CBM)").fill("60");
   await fwd.getByLabel("Threshold to settle (CBM)").fill("60");
   await fwd.getByLabel("Rate (USDCx per CBM)").fill("150");
@@ -74,7 +76,7 @@ try {
   // ---- Importers: reserve and sign, on phone-sized screens ----------------------------------
   for (const [name, cbm] of importers) {
     const page = await signIn(browser, name, { ...devices["Pixel 7"], deviceScaleFactor: 1 });
-    await page.getByRole("link", { name: /UI test: Guangzhou to Lagos/ }).first().click();
+    await page.getByRole("link", { name: TITLE_RE }).first().click();
     await page.waitForURL(/\/importer\/invitations\//);
     const amount = page.locator('input[inputmode="decimal"]');
     await amount.fill(cbm);
@@ -83,7 +85,7 @@ try {
     await confirmSheet(page, "Request reservation");
     await page.waitForURL(/\/importer\/campaigns\//, { timeout: 30_000 }).catch(async () => {
       await page.goto(`${WEB}/importer`);
-      await page.getByRole("link", { name: /UI test: Guangzhou to Lagos/ }).first().click();
+      await page.getByRole("link", { name: TITLE_RE }).first().click();
     });
     await page.getByRole("button", { name: "Review and sign" }).click({ timeout: 60_000 });
     if (name.startsWith("Ada")) await page.screenshot({ path: `${SHOTS}importer-sign.png`, fullPage: true });
@@ -107,7 +109,7 @@ try {
 
   // ---- Importer sees only its own settled position ------------------------------------------
   const ada = await signIn(browser, "Ada Phone Accessories", { ...devices["Pixel 7"], deviceScaleFactor: 1 });
-  await ada.getByRole("link", { name: /UI test: Guangzhou to Lagos/ }).first().click();
+  await ada.getByRole("link", { name: TITLE_RE }).first().click();
   await ada.getByText(/Settled/).first().waitFor({ timeout: 30_000 });
   const text = await ada.locator("body").innerText();
   for (const other of importers.slice(1).map(([n]) => n)) if (text.includes(other)) throw new Error(`Ada can see ${other}`);
@@ -148,7 +150,7 @@ try {
   log("forwarder resolved the dispute");
 
   const bola = await signIn(browser, "Bola Textiles", { ...devices["Pixel 7"], deviceScaleFactor: 1 });
-  await bola.getByRole("link", { name: /UI test: Guangzhou to Lagos/ }).first().click();
+  await bola.getByRole("link", { name: TITLE_RE }).first().click();
   await bola.getByText("HBF-GZ-LOS-0412").waitFor({ timeout: 30_000 });
   const bolaText = await bola.locator("body").innerText();
   if (/cartons missing|Ada/i.test(bolaText)) throw new Error("Bola can see Ada's dispute");

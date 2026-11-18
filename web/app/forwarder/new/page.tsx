@@ -163,10 +163,10 @@ function NewCampaign() {
   return (
     <>
       <PageHeader title="New campaign" />
-      <form onSubmit={submit} className="grid gap-4 lg:grid-cols-3" noValidate>
+      <form onSubmit={submit} className="grid grid-cols-[minmax(0,1fr)] gap-4 [&>*]:min-w-0 lg:grid-cols-3" noValidate>
         <div className="min-w-0 space-y-4 lg:col-span-2">
           <Card title="Shipment">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 [&>*]:min-w-0 sm:grid-cols-2">
               <Field label="Campaign title" error={v.errors.title}>
                 <input className={inputClass} value={f.title} onChange={set("title")} placeholder="December groupage, 40ft HC" required />
               </Field>
@@ -176,7 +176,7 @@ function NewCampaign() {
             </div>
           </Card>
           <Card title="Capacity and price">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 [&>*]:min-w-0 sm:grid-cols-2">
               <Field label="Container capacity (CBM)" error={v.errors.capacityCbm}>
                 <input className={inputClass} inputMode="decimal" value={f.capacityCbm} onChange={set("capacityCbm")} />
               </Field>
@@ -212,7 +212,7 @@ function NewCampaign() {
                 </button>
               ))}
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 [&>*]:min-w-0 sm:grid-cols-2">
               <Field label="Lock time" error={v.errors.lockTime}>
                 <input type="datetime-local" className={inputClass} value={f.lockTime} onChange={set("lockTime")} />
               </Field>

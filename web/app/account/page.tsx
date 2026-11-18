@@ -26,7 +26,7 @@ function Account() {
   return (
     <>
       <PageHeader title="Account" subtitle={user.kind === "demo" ? "Demo account" : user.email} />
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 [&>*]:min-w-0 lg:grid-cols-[1.2fr_1fr]">
         <Card title="Profile">
           <KeyValues
             items={[
