@@ -21,15 +21,15 @@ The MVP described here is implemented in this repository and runs end to end on 
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| Contracts (section 13), including bookings and disputes | Implemented | `daml/summertime-core`; 22 Daml Script tests |
+| Contracts (section 13), including bookings and disputes | Implemented | `daml/summertime-core`; 21 Daml Script tests |
 | API (section 20) | Implemented | `services/api`; reference in `docs/api.md` |
 | Worker automation (section 19.4) and pilot custody | Implemented | `services/worker` |
 | Operations: reconciliation and monitoring (sections 19.3, 28) | Implemented | `services/worker/src/ops.ts`, `GET /ops/status` |
 | Web app (sections 21, 23) | Implemented | `web` |
 | CIP-56 registry integration | Implemented against the standard off-ledger API; tested against a local registry for the reference token | `packages/ledger/src/registry.ts`, `services/dev-registry` |
 | Privacy tests on separate participants (26.2) | Implemented: a campaign runs across three participants (Summertime, importer A, importer B) on one synchronizer; no transaction delivered to an importer's participant mentions another importer, and the single settlement transaction reaches each importer as its own leg only | `tests/multi-participant` (`run.sh`), `Summertime.Test.MultiParticipant`; CI job `multi-participant` |
-| Accounts (sections 22, 25) | Implemented: email and password (scrypt), rate-limited sign-in, password change and emailed reset; demo accounts kept separate | `services/api/src/routes/auth.ts`; guard tests |
-| Hosted deployment | Implemented: web on Netlify; API, worker, registry and a persistent single-node Canton ledger (Postgres storage) on Railway. Accounts and campaigns survive redeploys and crashes | `deploy/backend`, `docs/deployment.md` |
+| Accounts (sections 22, 25) | Implemented: sign-in by email code through Privy (hosted); email and password (scrypt) with rate limits and emailed reset as the fallback; demo accounts kept separate | `services/api/src/routes/auth.ts`, `services/api/src/privy.ts`; guard and Privy tests |
+| Hosted deployment | Implemented at https://summertime-app.netlify.app: web on Netlify; API, worker, registry and a persistent single-node Canton ledger (Postgres storage) on Railway. Accounts and campaigns survive redeploys and crashes | `deploy/backend`, `docs/deployment.md` |
 | DevNet deployment, real USDCx | Not yet | — |
 | Wallet mode | Not yet (pilot mode only) | — |
 

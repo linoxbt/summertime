@@ -33,7 +33,7 @@
 <div class="page">
   <header>
     <div><h1>Summertime</h1><div class="tagline">Commit together. Settle together.</div></div>
-    <div class="meta">Executive summary · November 2026<br>AppsFactory Accelerator, Cohort 2<br>github.com/linoxbt/summertime</div>
+    <div class="meta">Executive summary · November 2026<br>AppsFactory Accelerator, Cohort 2<br>Live (test network): summertime-app.netlify.app<br>github.com/linoxbt/summertime</div>
   </header>
 
   <p class="lead">Summertime lets competing importers reserve space in a shared shipping container without seeing each other's volumes or identities. Each importer locks USDCx against a forwarder-signed reservation. If the container fills before the deadline, every payment settles to the forwarder in <b>one atomic Canton transaction</b>. If it doesn't, every importer's funds are released and each claims a share of a failure bond the forwarder posted upfront.</p>
@@ -63,14 +63,15 @@
     <div>
       <h2>Progress (verifiable in the public repository)</h2>
       <ul>
-        <li>51-page build specification (v1.1) with privacy model, threat model and test plan, after a design review that fixed four critical flaws before coding.</li>
-        <li><b>summertime-core:</b> 16 Daml templates on SDK 3.7.1 against the Canton token-standard V1 interfaces.</li>
-        <li><b>20 automated tests passing:</b> atomic six-leg settlement; exact failure bonuses; the forwarder cannot settle alone, overbook, or avoid the bond; importers cannot see each other.</li>
-        <li>Not yet: DevNet deployment, app UI, users or revenue.</li>
+        <li><b>Live MVP</b> at summertime-app.netlify.app: our own Canton 3.7.1 ledger on Railway (persistent, Postgres), web on Netlify, test USDCx. No real funds.</li>
+        <li><b>Accounts:</b> email-code sign-in (Privy) with role and company. Demo accounts and explorer at /demo.</li>
+        <li><b>Flows:</b> campaigns, invites, lock, atomic settlement, refund plus bonus, bookings, disputes, reconciliation.</li>
+        <li><b>Tests:</b> 21 Daml tests; privacy across three Canton participants; end-to-end and accessibility tests; CI green.</li>
+        <li><b>Not yet:</b> DevNet participant, real users or revenue.</li>
       </ul>
 
       <h2>Market and customer</h2>
-      <p><b>Buyer:</b> independent forwarders running groupage containers, China–Lagos. <b>User:</b> SME importers shipping 1–15 CBM. <b>Ideal first customer:</b> a forwarder running two or more groupage containers a month with importers it knows by name. Market size will be built from interview data rather than estimated without a source.</p>
+      <p><b>Buyer:</b> independent forwarders running groupage containers, China–Lagos. <b>User:</b> SME importers shipping 1–15 CBM. <b>First customer:</b> a forwarder filling two or more containers a month. Market size will come from interview data, not an unsourced guess.</p>
 
       <h2>Business model (hypothesis)</h2>
       <table>
@@ -81,24 +82,25 @@
       </table>
 
       <h2>Go-to-market</h2>
-      <p>Sign one forwarder; it onboards the importers it already serves. Expand forwarder by forwarder. <b>Growth metric:</b> containers filled per week (secondary: days to fill).</p>
+      <p>Sign one forwarder; it onboards the importers it already serves. Expand forwarder by forwarder. <b>Growth metric:</b> containers filled per week.</p>
     </div>
   </div>
 
   <h2>Plan</h2>
   <table>
     <tr><th style="width:24%">When</th><th>Milestone</th></tr>
-    <tr><td>Nov – early Dec 2026</td><td>LocalNet privacy tests; API, worker and UIs; DevNet deployment; 5 forwarder and 10 importer interviews; one pilot agreement; one failed and one successful real campaign</td></tr>
+    <tr><td>Nov 2026 (done)</td><td>Contracts, API, worker and web app live on our own Canton ledger; multi-participant test; CI green</td></tr>
+    <tr><td>Late Nov – Dec 2026</td><td>DevNet participant; forwarder and importer interviews; first real forwarder; its first real container</td></tr>
     <tr><td>Accelerator weeks 1–8</td><td>Validate one segment and metric (weeks 1–2); real users via forwarder-led onboarding (3–6); investors, partners and Demo Day (7–8)</td></tr>
     <tr><td>2027</td><td>Wallet mode; TestNet then MainNet USDCx; neutral bond escrow; commitment-engine API</td></tr>
   </table>
 
   <div class="cols" style="margin-top:4px">
-    <div class="box"><b>Team.</b> Solo founder covering product, Daml contracts, backend and customer development. Hiring follows the pilot.</div>
-    <div class="box acc"><b>Help sought from Cohort 2:</b> fundraising (pre-seed, sized from pilot data), go-to-market (first forwarder, one proven channel), technical architecture (DevNet, USDCx, audit path).</div>
+    <div class="box"><b>Team.</b> Solo founder covering product, Daml contracts, backend, web app and customer development. Built and shipped the MVP alone. Hiring follows the pilot.</div>
+    <div class="box acc"><b>Help sought from Cohort 2:</b> fundraising (pre-seed, sized from pilot data), go-to-market (first forwarder, one proven channel), technical architecture (DevNet participant, USDCx, audit path).</div>
   </div>
 
-  <div class="foot">Risks we track openly: no pilot forwarder signed yet; DevNet access and USDCx availability on DevNet (fallback: Canton Coin, same code); bond custody by the operator until a neutral escrow ships; physical delivery stays off-ledger and contractual. Summertime is unaudited.</div>
+  <div class="foot">Risks we track openly: no pilot forwarder signed yet; the live app runs on a test network with test USDCx; DevNet access and USDCx availability on DevNet (fallback: Canton Coin, same code); bond custody by the operator until a neutral escrow ships; physical delivery stays off-ledger and contractual. Summertime is unaudited.</div>
 </div>
 </body>
 </html>

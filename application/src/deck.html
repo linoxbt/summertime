@@ -68,7 +68,7 @@
   <h1>Summertime</h1>
   <div class="tagline">Commit together. Settle together.</div>
   <p>Private, all-or-nothing settlement for importers who share shipping containers, built on Canton Network with USDCx.</p>
-  <div class="footer"><span>November 2026</span><span>github.com/linoxbt/summertime</span></div>
+  <div class="footer"><span>November 2026 · Live on a test network: summertime-app.netlify.app</span><span>github.com/linoxbt/summertime</span></div>
 </section>
 
 <!-- 2. Problem story -->
@@ -124,7 +124,7 @@
       <p class="small" style="margin:0"><b>Six importers reserve 60 CBM</b> → 9,000 USDCx settles to the forwarder in one transaction; the bond is returned.</p>
       <div class="bar"><span style="width:90%; background:#94a3b8"></span></div>
       <p class="small" style="margin:0"><b>Five importers reserve 54 CBM</b> → nobody pays; all funds released; the 200 USDCx bond is split pro rata (51.85, 44.44, 40.74, 33.33, 29.63 USDCx).</p>
-      <p class="small muted" style="margin:0">Both cases run today as automated tests against a reference CIP-56 token.</p>
+      <p class="small muted" style="margin:0">Both cases are automated tests, and both run in the live app.</p>
     </div>
   </div>
   <div class="footer"><span>Summertime</span><span>4</span></div>
@@ -163,13 +163,13 @@
   <div class="kicker">Product and architecture</div>
   <h1>A Daml commitment engine with a simple app on top.</h1>
   <div class="flow" style="margin-bottom:24px">
-    <div class="box"><h2>Importer app</h2><p class="small" style="margin:0">Mobile-first: reserve CBM, see USDCx, sign, track progress, claim bonus.</p></div>
+    <div class="box"><h2>Web app</h2><p class="small" style="margin:0">Next.js on Netlify. Email-code sign-in (Privy). Forwarder dashboard; mobile-first importer flow.</p></div>
     <div class="arrow">→</div>
-    <div class="box"><h2>API and worker</h2><p class="small" style="margin:0">Node.js / TypeScript; deterministic command IDs; offset-tracked automation.</p></div>
+    <div class="box"><h2>API and worker</h2><p class="small" style="margin:0">Node.js / TypeScript on Railway. Deterministic command IDs; operator reconciliation.</p></div>
     <div class="arrow">→</div>
     <div class="box" style="background:var(--accent-soft); border-color:#f59e0b"><h2>Daml contracts</h2><p class="small" style="margin:0">Campaigns, reservations, commitments, bond, bonuses (summertime-core).</p></div>
     <div class="arrow">→</div>
-    <div class="box"><h2>Canton + USDCx</h2><p class="small" style="margin:0">Validator, Global Synchronizer, USDCx registry (CIP-56).</p></div>
+    <div class="box"><h2>Canton + USDCx</h2><p class="small" style="margin:0">Today: our own Canton 3.7.1 node on Postgres, test USDCx. Next: DevNet participant.</p></div>
   </div>
   <div class="grid g2">
     <div class="card soft"><h2>Settlement guard</h2><p>Campaigns are co-signed by the forwarder and Summertime. A commitment can only be settled from inside the campaign's settle step, which checks the threshold and deadline on-ledger.</p></div>
@@ -181,28 +181,28 @@
 <!-- 8. Progress -->
 <section class="slide">
   <div class="kicker">Progress to date</div>
-  <h1>Core contracts built and tested. Users next.</h1>
+  <h1>Live MVP on a test network. Real users next.</h1>
   <div class="grid g2" style="gap:26px">
     <div class="card">
       <h2><span class="tag ok">Done</span></h2>
       <ul class="check">
-        <li>51-page build specification (v1.1): architecture, privacy model, threat model, test plan</li>
-        <li>Design review that found and fixed four critical flaws before any code was written</li>
-        <li><b>summertime-core</b>: 16 Daml templates on SDK 3.7.1, built on the Canton token-standard V1 interfaces</li>
-        <li><b>20 automated tests passing</b>: atomic six-leg settlement, exact failure bonuses, authorization, adversarial and privacy checks</li>
+        <li><b>Live app</b> at summertime-app.netlify.app, on our own Canton 3.7.1 ledger with test USDCx</li>
+        <li>Real accounts by email code; demo accounts and a privacy explorer at /demo</li>
+        <li>Full flow: campaign, invites, reserve and lock, atomic settlement, refund plus bonus, booking, disputes, operator reconciliation</li>
+        <li><b>21 Daml tests</b>, a privacy test across three Canton participants, end-to-end and accessibility tests; CI passing</li>
       </ul>
     </div>
     <div class="card soft">
       <h2><span class="tag">Next</span></h2>
       <ul class="check todo">
-        <li>LocalNet multi-participant privacy tests and Canton Coin settlement</li>
-        <li>DevNet deployment with real update IDs (USDCx, or Canton Coin fallback)</li>
-        <li>API, worker, forwarder dashboard and importer mobile flow</li>
-        <li>Interviews with 5 forwarders and 10 importers; one signed pilot forwarder</li>
+        <li>DevNet participant, then real USDCx</li>
+        <li>Interviews with forwarders and importers</li>
+        <li>First real forwarder and its first real container</li>
+        <li>Track one metric: containers filled per week</li>
       </ul>
     </div>
   </div>
-  <p class="small muted" style="margin-top:18px">No users or revenue yet. Every claim on this slide can be checked in the public repository.</p>
+  <p class="small muted" style="margin-top:18px">Test network and test funds only. No real users or revenue yet. Every claim here can be checked in the public repository.</p>
   <div class="footer"><span>Summertime</span><span>8</span></div>
 </section>
 
@@ -268,12 +268,12 @@
 <!-- 12. Roadmap -->
 <section class="slide">
   <div class="kicker">Roadmap</div>
-  <h1>From tested contracts to a real container.</h1>
+  <h1>From a live MVP to a real container.</h1>
   <table>
     <tr><th style="width:24%">When</th><th style="width:40%">Milestone</th><th>Evidence</th></tr>
-    <tr><td>Nov 2026</td><td>Contracts and test suites; LocalNet privacy tests</td><td><span class="tag ok">Contracts done</span> 20 passing tests</td></tr>
-    <tr><td>Late Nov – early Dec</td><td>API, worker, UIs; DevNet deployment</td><td>DevNet update IDs</td></tr>
-    <tr><td>Early Dec</td><td>Interviews; pilot agreement; one failed and one successful real campaign</td><td>Written feedback; transaction IDs</td></tr>
+    <tr><td>Nov 2026</td><td>Contracts, API, worker and web app; live on our own Canton ledger</td><td><span class="tag ok">Done</span> Live app; 21 Daml tests; CI green</td></tr>
+    <tr><td>Late Nov – Dec</td><td>DevNet participant; USDCx registry checks</td><td>DevNet update IDs</td></tr>
+    <tr><td>Dec</td><td>Interviews; first real forwarder signed; its first real container</td><td>Written feedback; transaction IDs</td></tr>
     <tr><td>Accelerator weeks 1–2</td><td>One segment, one problem, one metric, tested in customer conversations</td><td>Interview scorecards</td></tr>
     <tr><td>Weeks 3–6</td><td>Real users through forwarder-led onboarding</td><td>Containers filled per week</td></tr>
     <tr><td>Weeks 7–8</td><td>Investor and partner conversations; Demo Day</td><td>Pilot results</td></tr>
@@ -289,21 +289,21 @@
   <div class="grid g2" style="gap:26px">
     <div class="card">
       <h2>Team</h2>
-      <p>Solo founder covering product, Daml contracts, backend and customer development.</p>
-      <p class="small" style="margin:0">Delivered so far: the full specification, a security review of it, and the tested core contracts, all public. Hiring follows the pilot, starting where the pilot shows the biggest gap.</p>
+      <p>Solo founder covering product, Daml contracts, backend, web app and customer development.</p>
+      <p class="small" style="margin:0">Delivered so far: the specification and its security review, the tested contracts, and the live MVP. All public. Hiring follows the pilot, starting where it shows the biggest gap.</p>
     </div>
     <div class="card accent">
       <h2>What we want from Cohort 2</h2>
       <ul>
         <li><b>Fundraising:</b> pre-seed narrative and investor introductions, sized from pilot data</li>
         <li><b>Go-to-market:</b> signing the first forwarder and proving one channel</li>
-        <li><b>Technical architecture:</b> DevNet deployment, USDCx integration and an audit path</li>
+        <li><b>Technical architecture:</b> DevNet participant, USDCx integration and an audit path</li>
       </ul>
     </div>
   </div>
   <div class="spacer"></div>
   <p class="lead" style="color:var(--ink); font-weight:600; margin:0">Summertime. Commit together, settle together.</p>
-  <p class="small muted" style="margin:6px 0 0">Code, specification and tests: github.com/linoxbt/summertime</p>
+  <p class="small muted" style="margin:6px 0 0">Live app: summertime-app.netlify.app · Code, specification and tests: github.com/linoxbt/summertime</p>
   <div class="footer"><span>Summertime</span><span>13</span></div>
 </section>
 

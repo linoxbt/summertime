@@ -1,4 +1,8 @@
 // Renders application/src/*.html to PDF. Usage: node render.js <in.html> <out.pdf> <deck|a4>
+// The repository's package.json sets "type": "module", so this file is ESM; createRequire
+// keeps CommonJS resolution (including NODE_PATH, where a global Playwright lives).
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 (async () => {
   const [,, input, output, mode] = process.argv;

@@ -14,7 +14,7 @@ web (Next.js, :3000) ──/api/*──▶ summertime-api (:7580) ──JSON Led
 | Component | Path | Role |
 | --- | --- | --- |
 | Daml contracts | `daml/summertime-core` | Campaigns, reservations, commitments, bond, bonuses (spec section 13) |
-| Daml tests | `daml/summertime-test` | 20 Daml Script tests against Splice's reference token |
+| Daml tests | `daml/summertime-test` | 21 Daml Script tests against Splice's reference token |
 | Ledger client | `packages/ledger` | Typed JSON Ledger API v2 client, CIP-56 registry client, template IDs, amounts, API types |
 | Platform | `packages/platform` | Config, Postgres schema and migrations, deterministic command runner, leader lock |
 | API | `services/api` | Sessions, party-scoped reads, every user action (spec section 20); `bootstrap` script |
@@ -63,7 +63,7 @@ CI (`.github/workflows/ci.yml`) runs the Daml tests, typecheck, unit tests and w
 
 ### Accounts in development
 
-Real accounts sign up at `/signup` and sign in at `/login` with email and password. Without an
+Real accounts sign in at `/login`. With `NEXT_PUBLIC_PRIVY_APP_ID` (web) and `PRIVY_APP_ID` (API) set, sign-in is by email code through Privy (the hosted site); without them, by email and password. Without an
 email provider, password-reset mail is written to the `mail_outbox` table (and the API log)
 instead of being sent. The seeded demo accounts are at `/demo` and have no password.
 
