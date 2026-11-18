@@ -88,7 +88,7 @@ onboard() {
     npx tsx services/api/src/onboard.ts >>"$RUN/rh-onboard.log" 2>&1)
 }
 onboard && onboard || { echo "✗ onboarding failed (see $RUN/rh-onboard.log)" >&2; tail -5 "$RUN/rh-onboard.log" >&2; exit 1; }
-DEP="$(psql -tA postgres://summertime:summertime@127.0.0.1:5432/summertime_rehearsal_onboard -c "SELECT value->>'network' || ' ' || value->>'operatorParty' FROM system_config WHERE key = 'deployment'")"
+DEP="$(psql -tA postgres://summertime:summertime@127.0.0.1:5432/summertime_rehearsal_onboard -c "SELECT (value->>'network') || ' ' || (value->>'operatorParty') FROM system_config WHERE key = 'deployment'")"
 OPS="$(psql -tA postgres://summertime:summertime@127.0.0.1:5432/summertime_rehearsal_onboard -c "SELECT count(*) FROM users WHERE role = 'operator'")"
 case "$DEP" in "devnet rehearsal-operator::"*) ;; *) echo "✗ unexpected deployment record: $DEP" >&2; exit 1;; esac
 [ "$OPS" = 1 ] || { echo "✗ expected one operator account, found $OPS" >&2; exit 1; }
