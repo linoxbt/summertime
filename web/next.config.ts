@@ -26,7 +26,6 @@ const nextConfig: NextConfig = {
       { source: "/sailings", destination: "/docs#sailings", permanent: false },
       { source: "/canton", destination: "/docs#why-canton", permanent: false },
       { source: "/questions", destination: "/docs#questions", permanent: false },
-      { source: "/privacy", destination: "/docs#trust-model", permanent: false },
     ];
   },
   async rewrites() {

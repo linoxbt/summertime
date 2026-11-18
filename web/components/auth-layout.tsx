@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Eyebrow, PublicPage } from "./public";
@@ -56,6 +57,11 @@ export function AuthLayout({ eyebrow, title, children, below }: { eyebrow: strin
             <h1 className="display text-5xl text-fg lg:hidden">{title}</h1>
             <div className="mt-6 rounded-3xl border border-line bg-panel p-6 shadow-lift sm:p-8 lg:mt-0">{children}</div>
             {below && <div className="mt-6 text-center text-sm text-muted">{below}</div>}
+            <p className="mt-6 text-center text-xs text-faint">
+              By continuing you agree to the{" "}
+              <Link href="/terms" className="underline hover:text-fg">Terms</Link> and{" "}
+              <Link href="/privacy" className="underline hover:text-fg">Privacy</Link> policy.
+            </p>
           </div>
         </section>
       </div>

@@ -50,7 +50,13 @@ export function PublicFooter() {
         <FooterCol title="Project" links={[["https://github.com/linoxbt/summertime", "Source"], ["https://www.canton.network", "Canton Network"], ["/docs#trust-model", "Trust model"]]} last />
       </div>
       <div className="border-t border-[#2c2b28]">
-        <p className="label mx-auto max-w-6xl border-x border-[#2c2b28] px-4 py-4 text-[#a6a59f] sm:px-6">© 2026 Summertime · Unaudited pilot · Test USDCx only</p>
+        <div className="label mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 border-x border-[#2c2b28] px-4 py-4 text-[#a6a59f] sm:px-6">
+          <p>© 2026 Summertime · Unaudited pilot · Test USDCx only</p>
+          <p className="flex gap-4">
+            <Link href="/terms" className="hover:text-page">Terms</Link>
+            <Link href="/privacy" className="hover:text-page">Privacy</Link>
+          </p>
+        </div>
       </div>
     </footer>
   );
