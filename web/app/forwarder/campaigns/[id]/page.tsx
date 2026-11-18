@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatUsdc, type ForwarderCampaignDetail, type PartyRef } from "@summertime/ledger";
 import { api, newIdempotencyKey } from "@/lib/api";
@@ -25,6 +25,7 @@ import {
   LoadingState,
   Notice,
   PageHeader,
+  Switch,
 } from "@/components/ui";
 
 export default function CampaignDetailPage() {
@@ -188,6 +189,7 @@ function CampaignDetail() {
               <p className="text-sm text-muted">Ended</p>
             ) : (
               <div className="space-y-3">
+                <AutoSettle campaignId={c.campaignId} enabled={c.autoSettle} onDone={refresh} />
                 <Button className="w-full" disabled={!c.canExecute} onClick={execute.openSheet}>
                   Settle now
                 </Button>
@@ -425,5 +427,32 @@ function Invitees({ campaign, onDone }: { campaign: ForwarderCampaignDetail; onD
         )
       )}
     </Card>
+  );
+}
+
+function AutoSettle({ campaignId, enabled, onDone }: { campaignId: string; enabled: boolean; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [value, setValue] = useState(enabled);
+  useEffect(() => setValue(enabled), [enabled]);
+  async function change(next: boolean) {
+    setBusy(true);
+    setError(null);
+    setValue(next);
+    try {
+      await api.post(`/campaigns/${encodeURIComponent(campaignId)}/auto-settle`, { enabled: next }, newIdempotencyKey());
+      onDone();
+    } catch (e) {
+      setValue(!next);
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="space-y-2 border-b border-line pb-3">
+      <Switch checked={value} onChange={change} disabled={busy} label="Settle automatically" description="As soon as the threshold is met." />
+      <InlineError error={error} />
+    </div>
   );
 }

@@ -8,6 +8,7 @@ import { useSession, useSignOut } from "@/lib/session";
 import { Button, ErrorState, LoadingState } from "./ui";
 import { Logo } from "./logo";
 import { Menu } from "./menu";
+import { NotificationBell } from "./notifications";
 
 const NAV: Record<SessionUser["role"], { href: string; label: string }[]> = {
   forwarder: [
@@ -98,6 +99,7 @@ function Frame({ user, children }: { user?: SessionUser; children: ReactNode }) 
                   <span className="block font-semibold text-fg">{user.displayName}</span>
                   <span className="label text-faint">{user.role}</span>
                 </span>
+                <NotificationBell />
                 <Menu
                   items={items}
                   footer={

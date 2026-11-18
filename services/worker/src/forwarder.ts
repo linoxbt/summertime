@@ -4,6 +4,8 @@ import {
   I,
   T,
   extraArgsFrom,
+  type BondTicket,
+  type BonusEntitlement,
   type Campaign,
   type CapacityHold,
   type CapacityRelease,
@@ -11,9 +13,11 @@ import {
   type Commitment,
   type ProgressView,
   type ReservationRequest,
+  type SettleLeg,
   type SummertimeAllocationRequest,
 } from "@summertime/ledger";
 import { rejectionReason } from "@summertime/platform";
+import { notifyPass } from "./notify.ts";
 import { acs, step, userFor, type WorkerContext } from "./shared.ts";
 
 const PROGRESS_MIN_PARTICIPANTS = 3;
@@ -166,5 +170,66 @@ export async function forwarderPass(w: WorkerContext, forwarder: { party: string
     await step(w, `fail ${c.payload.campaignId}`, () =>
       run("forwarder.fail", `fail:${c.payload.campaignId}`, { ExerciseCommand: { templateId: T.Campaign, contractId: cid, choice: "Campaign_Fail", choiceArgument: { actor: party } } }, c.payload.campaignId),
     );
+  }
+}
+
+/**
+ * Auto-settle (spec 19.4: "Threshold met: MAY auto-execute if the forwarder enabled it").
+ * For each open campaign the forwarder opted in, settle as soon as the committed space reaches
+ * the threshold, before the deadline. Same rules and command as the forwarder's own Settle.
+ */
+export async function autoSettlePass(w: WorkerContext, forwarder: { party: string; handle: string }): Promise<void> {
+  const party = forwarder.party;
+  const optedIn = new Set(
+    (await w.db.query<{ campaign_id: string }>("SELECT campaign_id FROM campaign_index WHERE forwarder_party = $1 AND auto_execute", [party])).rows.map((r) => r.campaign_id),
+  );
+  if (optedIn.size === 0) return;
+  const now = w.now().getTime();
+  const campaigns = (await acs<Campaign>(w, party, "Campaign")).filter((c) => optedIn.has(c.payload.campaignId) && now < Date.parse(c.payload.terms.deadline));
+  if (campaigns.length === 0) return;
+  const [commitments, tickets, entitlements, allocations] = await Promise.all([
+    acs<Commitment>(w, party, "Commitment"),
+    acs<BondTicket>(w, party, "BondTicket"),
+    acs<BonusEntitlement>(w, party, "BonusEntitlement"),
+    w.ledger.activeContracts([party], { interfaces: [I.Allocation] }),
+  ]);
+  const live = new Set(allocations.map((a) => a.contractId));
+  for (const c of campaigns) {
+    const id = c.payload.campaignId;
+    const mine = commitments.filter((x) => x.payload.campaignId === id && live.has(x.payload.allocationCid));
+    const total = mine.reduce((a, x) => a + BigInt(x.payload.reservedMilliCbm), 0n);
+    if (mine.length === 0 || total < BigInt(c.payload.terms.thresholdMilliCbm)) continue;
+    const legs: SettleLeg[] = [];
+    const disclosed: Awaited<ReturnType<WorkerContext["registry"]["allocationContext"]>>["disclosedContracts"] = [];
+    let ready = true;
+    for (const x of mine) {
+      const ent = entitlements.find((e) => e.payload.commitmentCid === x.contractId);
+      const ticket = tickets.find((t) => t.payload.commitmentCid === x.contractId);
+      const bonusRef = ent ? { tag: "EntitlementRef" as const, value: ent.contractId } : ticket ? { tag: "TicketRef" as const, value: ticket.contractId } : undefined;
+      if (!bonusRef) {
+        ready = false; // the bond lock is moving this commitment's record; try next pass
+        break;
+      }
+      const context = await w.registry.allocationContext(x.payload.allocationCid, "execute-transfer");
+      disclosed.push(...context.disclosedContracts);
+      legs.push({ commitmentCid: x.contractId, bonusRef, extraArgs: extraArgsFrom(context.choiceContextData) });
+    }
+    if (!ready) continue;
+    // Settling archives the commitments: record "funds locked" notifications for them first.
+    await notifyPass(w, party).catch((e) => w.log.warn({ err: String(e).slice(0, 200) }, "pre-settle notifications failed"));
+    const ok = await step(w, `auto-settle ${id}`, () =>
+      w.commands.run(
+        "campaign.execute",
+        {
+          commandId: `auto-execute:${id}:${legs.length}`,
+          actAs: [party],
+          userId: userFor(forwarder.handle),
+          commands: [{ ExerciseCommand: { templateId: T.Campaign, contractId: c.contractId, choice: "Campaign_Execute", choiceArgument: { included: legs } } }],
+          disclosedContracts: disclosed,
+        },
+        id,
+      ),
+    );
+    if (ok) w.log.info({ campaign: id, legs: legs.length }, "auto-settled");
   }
 }

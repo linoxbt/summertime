@@ -6,6 +6,7 @@ import type { InvitationDto, PositionDto } from "@summertime/ledger";
 import { api } from "@/lib/api";
 import { formatDateTime, relativeTime, cbm } from "@/lib/format";
 import { AppShell } from "@/components/shell";
+import { useSession } from "@/lib/session";
 import { BalanceChip } from "@/components/importer";
 import { PositionStageBadge } from "@/components/status";
 import { EmptyState, ErrorState, LoadingState, PageHeader, PrivacyLine } from "@/components/ui";
@@ -23,6 +24,7 @@ export default function ImporterHome() {
 }
 
 function Invitations() {
+  const user = useSession().data;
   const q = useQuery({ queryKey: ["invitations"], queryFn: () => api.get<InvitationDto[]>("/invitations"), refetchInterval: 5000 });
   return (
     <section>
@@ -32,7 +34,10 @@ function Invitations() {
       ) : q.isError ? (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       ) : q.data.length === 0 ? (
-        <EmptyState title="No open invitations" />
+        <EmptyState title="Waiting for an invitation">
+          Forwarders invite you to their containers. Tell your forwarder your company name, <span className="font-medium text-fg">{user?.displayName}</span>, so they can find you.
+          You&apos;ll be notified when an invitation arrives.
+        </EmptyState>
       ) : (
         <ul className="space-y-3">
           {q.data.map((i) => (

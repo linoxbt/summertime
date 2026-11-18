@@ -7,7 +7,7 @@ import { formatUsdc, parseUnits } from "@summertime/ledger";
 import { api, newIdempotencyKey } from "@/lib/api";
 import { formatDateTime, toLocalInput } from "@/lib/format";
 import { AppShell } from "@/components/shell";
-import { Button, Card, KeyValues, ConfirmSheet, Field, InlineError, PageHeader, inputClass } from "@/components/ui";
+import { Button, Card, KeyValues, ConfirmSheet, Field, InlineError, PageHeader, inputClass, Switch } from "@/components/ui";
 
 interface FormState {
   title: string;
@@ -20,6 +20,7 @@ interface FormState {
   lockTime: string;
   deadline: string;
   bondUsdc: string;
+  autoSettle: boolean;
 }
 
 const PRESETS = [
@@ -41,6 +42,7 @@ function defaults(): FormState {
     lockTime: toLocalInput(new Date(now + 3 * 86_400_000)),
     deadline: toLocalInput(new Date(now + 5 * 86_400_000)),
     bondUsdc: "200",
+    autoSettle: false,
   };
 }
 
@@ -95,6 +97,7 @@ function NewCampaign() {
           lockTime: new Date(f.lockTime).toISOString(),
           deadline: new Date(f.deadline).toISOString(),
           bondUsdc: f.bondUsdc,
+          autoSettle: f.autoSettle,
         },
         newIdempotencyKey(),
       );
@@ -222,6 +225,14 @@ function NewCampaign() {
             <Field label="Bond (USDCx, 1–5%)" error={v.errors.bondUsdc}>
               <input className={inputClass} inputMode="decimal" value={f.bondUsdc} onChange={set("bondUsdc")} />
             </Field>
+          </Card>
+          <Card title="Settlement">
+            <Switch
+              checked={f.autoSettle}
+              onChange={(autoSettle) => setF((x) => ({ ...x, autoSettle }))}
+              label="Settle automatically"
+              description="Settle as soon as the threshold is met. You can change this later."
+            />
           </Card>
         </div>
         <div className="min-w-0 space-y-4">

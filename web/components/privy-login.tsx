@@ -7,13 +7,30 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { SessionUser } from "@summertime/ledger";
 import { api, ApiError, newIdempotencyKey } from "@/lib/api";
 import { homeFor } from "@/lib/session";
+import { PRIVY_APP_ID } from "@/lib/privy";
 import { AuthField } from "./auth-layout";
 import { Button, InlineError, Spinner, cx } from "./ui";
 
 type Role = "importer" | "forwarder";
 
+/** Google appears as soon as it is switched on in the Privy dashboard (read from Privy's public app settings). */
+function useGoogleEnabled(): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    let live = true;
+    fetch(`https://auth.privy.io/api/v1/apps/${encodeURIComponent(PRIVY_APP_ID)}`, { headers: { "privy-app-id": PRIVY_APP_ID } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((app: { google_oauth?: boolean } | null) => live && setOn(Boolean(app?.google_oauth)))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+  return on;
+}
+
 /**
- * Sign in or sign up with Privy (email code). After Privy signs the person in, its
+ * Sign in or sign up with Privy (email code, and Google when it is enabled in Privy). After Privy signs the person in, its
  * tokens are exchanged for a Summertime session; a new person adds company and role once.
  */
 export function PrivyLogin({ title, intro }: { title: string; intro: string }) {
@@ -27,6 +44,7 @@ export function PrivyLogin({ title, intro }: { title: string; intro: string }) {
   const [role, setRole] = useState<Role>("importer");
   const started = useRef(false);
   const [stalled, setStalled] = useState(false);
+  const google = useGoogleEnabled();
 
   // If Privy never becomes ready (blocked network, wrong app ID or origin), say so.
   useEffect(() => {
@@ -159,8 +177,8 @@ export function PrivyLogin({ title, intro }: { title: string; intro: string }) {
           <Spinner className="h-4 w-4" /> {ready ? "Signing you in…" : "Loading…"}
         </p>
       ) : (
-        <Button type="button" className="min-h-12 w-full text-base" onClick={() => (authenticated ? void exchange() : login())}>
-          Continue with email
+        <Button type="button" className="min-h-12 w-full text-base" onClick={() => (authenticated ? void exchange() : login({ loginMethods: google ? ["email", "google"] : ["email"] }))}>
+          {google ? "Continue with email or Google" : "Continue with email"}
         </Button>
       )}
       {error && authenticated ? (
@@ -170,7 +188,7 @@ export function PrivyLogin({ title, intro }: { title: string; intro: string }) {
           </button>
         </p>
       ) : null}
-      <p className="label text-center text-faint">Email code · secured by Privy</p>
+      <p className="label text-center text-faint">{google ? "Email code or Google" : "Email code"} · secured by Privy</p>
     </div>
   );
 }

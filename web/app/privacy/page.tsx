@@ -14,10 +14,11 @@ export default function PrivacyPage() {
           title: "What we collect",
           body: (
             <ul>
-              <li><span><strong>Email</strong>, to sign you in. Privy sends the one-time code.</span></li>
+              <li><span><strong>Email</strong>, to sign you in (Privy sends the one-time code) and, if you keep them on, to send notifications.</span></li>
               <li><span><strong>Company name and role</strong>, shown to the people you trade with.</span></li>
               <li><span><strong>Your activity</strong>: campaigns, reservations, payments, bookings and disputes.</span></li>
               <li><span><strong>Sign-in records</strong>: time, email and IP address, to stop password guessing and abuse.</span></li>
+              <li><span><strong>Messages</strong> you send through the Contact page.</span></li>
             </ul>
           ),
         },
@@ -58,6 +59,7 @@ export default function PrivacyPage() {
               <li><span><strong>Privy</strong>: sign-in and email codes.</span></li>
               <li><span><strong>Netlify</strong>: hosts the website.</span></li>
               <li><span><strong>Railway</strong>: hosts the ledger and database.</span></li>
+              <li><span><strong>Brevo</strong>: sends notification emails, when switched on.</span></li>
             </ul>
           ),
         },
@@ -65,7 +67,7 @@ export default function PrivacyPage() {
           title: "How long we keep it",
           body: (
             <>
-              <p>We keep your account while it is open. Ask us and we will delete your account and sign-in data.</p>
+              <p>We keep your account while it is open. Delete it yourself on the Account page: we remove your email, company name, sign-in records, notifications and messages.</p>
               <p>
                 Ledger records are permanent by design and cannot be edited after the fact. They stay on our test network, which
                 may be reset during the pilot.
@@ -77,8 +79,8 @@ export default function PrivacyPage() {
           title: "Your choices",
           body: (
             <p>
-              You can see your details on your Account page. To correct or delete them, open an issue on{" "}
-              <a href={CONTACT_URL}>GitHub</a> asking us to get in touch. Don&apos;t post personal details in it.
+              Your Account page shows your details, turns notification emails on or off, and deletes your account. For anything
+              else, use the <a href={CONTACT_URL}>Contact page</a>.
             </p>
           ),
         },

@@ -251,16 +251,17 @@ export interface CampaignLabel {
   createdAt: string;
   forwarderParty: string;
   terms: CampaignTerms;
+  autoSettle: boolean;
 }
 
 export async function campaignLabels(ctx: AppContext, ids: string[]): Promise<Map<string, CampaignLabel>> {
   if (ids.length === 0) return new Map();
-  const r = await ctx.db.query<{ campaign_id: string; title: string; route: string | null; created_at: Date; forwarder_party: string; terms_snapshot: CampaignTerms }>(
-    "SELECT campaign_id, title, route, created_at, forwarder_party, terms_snapshot FROM campaign_index WHERE campaign_id = ANY($1)",
+  const r = await ctx.db.query<{ campaign_id: string; title: string; route: string | null; created_at: Date; forwarder_party: string; terms_snapshot: CampaignTerms; auto_execute: boolean }>(
+    "SELECT campaign_id, title, route, created_at, forwarder_party, terms_snapshot, auto_execute FROM campaign_index WHERE campaign_id = ANY($1)",
     [ids],
   );
   return new Map(
-    r.rows.map((x) => [x.campaign_id, { title: x.title, route: x.route, createdAt: x.created_at.toISOString(), forwarderParty: x.forwarder_party, terms: x.terms_snapshot }]),
+    r.rows.map((x) => [x.campaign_id, { title: x.title, route: x.route, createdAt: x.created_at.toISOString(), forwarderParty: x.forwarder_party, terms: x.terms_snapshot, autoSettle: x.auto_execute }]),
   );
 }
 

@@ -119,6 +119,7 @@ jobs:
       - run: npm run e2e:guards
       - run: npx tsx tests/e2e/privy.e2e.ts
       - run: npm run e2e:ops
+      - run: npm run e2e:features
       - run: npm run e2e:api
       - run: npm run e2e:ui
       - run: npm run e2e:a11y

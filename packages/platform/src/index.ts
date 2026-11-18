@@ -6,6 +6,7 @@ import type { Db } from "./db.ts";
 export * from "./config.ts";
 export * from "./db.ts";
 export * from "./commands.ts";
+export * from "./mailer.ts";
 
 export function createLogger(name: string): Logger {
   return pino({

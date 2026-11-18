@@ -1,11 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import type { OpsStatus } from "@summertime/ledger";
-import { api } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ContactMessageDto, OpsStatus } from "@summertime/ledger";
+import { api, newIdempotencyKey } from "@/lib/api";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { AppShell } from "@/components/shell";
-import { Badge, Card, EmptyState, ErrorState, LoadingState, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorState, InlineError, LoadingState, PageHeader } from "@/components/ui";
 
 export default function OperationsPage() {
   return (
@@ -120,6 +120,59 @@ function Operations() {
           </Card>
         </div>
       </div>
+      <div className="mt-4">
+        <ContactMessages />
+      </div>
     </>
+  );
+}
+
+const TOPIC: Record<string, string> = { pilot: "Pilot", support: "Support", privacy: "Privacy", partnership: "Partnership", other: "Other" };
+
+function ContactMessages() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["contact"], queryFn: () => api.get<ContactMessageDto[]>("/ops/contact"), refetchInterval: 30_000 });
+  const done = useMutation({
+    mutationFn: (id: string) => api.post(`/ops/contact/${id}/handled`, undefined, newIdempotencyKey()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contact"] }),
+  });
+  const open = q.data?.filter((m) => !m.handled).length ?? 0;
+  return (
+    <Card title={`Contact messages${open ? ` · ${open} open` : ""}`}>
+      {q.isPending ? (
+        <LoadingState />
+      ) : q.isError ? (
+        <ErrorState error={q.error} onRetry={() => q.refetch()} />
+      ) : q.data.length === 0 ? (
+        <EmptyState title="No messages yet" />
+      ) : (
+        <ul className="divide-y divide-line">
+          {q.data.map((m) => (
+            <li key={m.id} className="py-4 first:pt-0 last:pb-0">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="font-semibold text-fg">
+                  {m.name}
+                  {m.company ? <span className="font-normal text-muted"> · {m.company}</span> : null}
+                </p>
+                <span className="flex items-center gap-2">
+                  <Badge tone={m.handled ? "neutral" : "accent"}>{m.handled ? "Handled" : TOPIC[m.topic] ?? m.topic}</Badge>
+                  <span className="label text-faint">{relativeTime(m.createdAt)}</span>
+                </span>
+              </div>
+              <a href={`mailto:${m.email}`} className="text-sm text-link hover:underline">
+                {m.email}
+              </a>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{m.message}</p>
+              {!m.handled && (
+                <Button variant="secondary" className="mt-3 min-h-10" busy={done.isPending && done.variables === m.id} onClick={() => done.mutate(m.id)}>
+                  Mark handled
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <InlineError error={done.error} />
+    </Card>
   );
 }

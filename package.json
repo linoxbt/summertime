@@ -25,7 +25,8 @@
     "e2e:guards": "tsx tests/e2e/api-guards.e2e.ts",
     "e2e:ops": "tsx tests/e2e/ops.e2e.ts",
     "e2e:a11y": "node tests/e2e/a11y.e2e.mjs",
-    "e2e:privy": "tsx tests/e2e/privy.e2e.ts"
+    "e2e:privy": "tsx tests/e2e/privy.e2e.ts",
+    "e2e:features": "tsx tests/e2e/features.e2e.ts"
   },
   "devDependencies": {
     "axe-core": "^4.14.1"

@@ -25,6 +25,7 @@ accounts never mix: importer lists, invitations and the privacy explorer stay wi
 | `POST /auth/password/change` | `{ currentPassword, newPassword }` | `{ ok: true }`; signs out every other session. `WRONG_PASSWORD`, `WEAK_PASSWORD`; demo accounts get 403 |
 | `POST /auth/privy` | `{ accessToken, identityToken?, profile?: { displayName, role } }` | Sign in with Privy. Tokens are verified (ES256, issuer `privy.io`, audience = the app ID, `PRIVY_VERIFICATION_KEY`); the email comes from the identity token (or Privy's REST API with `PRIVY_APP_SECRET`). Finds the account by Privy user, else links a member account with the same email, else answers 409 `PROFILE_REQUIRED` until `profile` is sent, then creates one (201). Errors: `PRIVY_TOKEN_INVALID` (401), `EMAIL_TAKEN` (demo email or another Privy user), `PRIVY_UNAVAILABLE` |
 | `POST /auth/logout` | — | `{ ok: true }` |
+| `POST /auth/account/delete` | `{ confirm: "DELETE" }` | `{ deleted: true }`; members only. Removes email, company name, password, Privy link, sessions, notifications, sign-in records, outbox mail and contact messages; the user row stays (marked deleted) because ledger history names the party. `ACCOUNT_BUSY` while a campaign, bond, reservation, locked funds, a bonus on its way or a dispute is open |
 | `GET /auth/me` | — | `SessionUser` (`kind`, `email` included) or 401 |
 | `GET /auth/demo-accounts` | — | demo accounts only `{ handle, displayName, role, email }[]` (demo mode) |
 | `POST /auth/demo-login` | `{ handle }` | `SessionUser`; demo accounts only (demo mode) |
@@ -37,7 +38,8 @@ logged or returned.
 | Method and path | Body | Returns | Errors |
 | --- | --- | --- | --- |
 | `GET /campaigns` | — | `ForwarderCampaignSummary[]` | |
-| `POST /campaigns` | `{ title, route?, capacityCbm, thresholdCbm, ratePerCbm, minCbm, maxCbm, lockTime, deadline, bondUsdc }` (decimal strings; ISO times) | `{ campaignId }` | `INVALID_TERMS` |
+| `POST /campaigns` | `{ title, route?, capacityCbm, thresholdCbm, ratePerCbm, minCbm, maxCbm, lockTime, deadline, bondUsdc, autoSettle? }` (decimal strings; ISO times) | `{ campaignId }` | `INVALID_TERMS` |
+| `POST /campaigns/:id/auto-settle` | `{ enabled }` | `{ autoSettle }`: when on, the worker settles as soon as the threshold is met, before the deadline (spec 19.4) | `ALREADY_FINAL` |
 | `GET /campaigns/:id` | — | `ForwarderCampaignDetail` | `NOT_FOUND` |
 | `POST /campaigns/:id/bond` | — | `{ updateId }` | `INSUFFICIENT_BALANCE`, `ALREADY_SENT` |
 | `GET /importers` | — | `PartyRef[]` (importer directory for inviting) | |
@@ -86,6 +88,24 @@ In pilot mode, `POST /reservations/:cid/commit` allocates the importer's USDCx t
 | --- | --- |
 | `GET /me/receipts` | `ReceiptDto[]` |
 | `GET /me/balance` | `BalanceDto` |
+| `GET /notifications` | `{ items: NotificationDto[], unread }`, newest 50 |
+| `POST /notifications/read` | `{ ids? }`; marks those (or all) read |
+| `GET /me/preferences` | `{ notifyEmail, emailAvailable }` |
+| `POST /me/preferences` | `{ notifyEmail }`; members only |
+
+Notifications are recorded by the worker from each account's own ledger view: invitations, space
+held, funds locked (forwarder), ready to settle and the 24-hour reminder (forwarder, unless
+auto-settle is on), settled, funds returned, bonus paid, bookings, disputes opened and resolved,
+and campaign outcomes. Members with email on also get them by email (needs an email provider).
+The text only ever describes the recipient's own records.
+
+## Contact
+
+| Method and path | Caller | Returns |
+| --- | --- | --- |
+| `POST /contact` | Anyone | `{ name, email, company?, topic: pilot\|support\|privacy\|partnership\|other, message, website? }` → 201. `website` is a honeypot and must be empty. 5 per IP per hour (`RATE_LIMITED`). Copied by email to `CONTACT_INBOX` when set |
+| `GET /ops/contact` | Operator | `ContactMessageDto[]`, newest 100 |
+| `POST /ops/contact/:id/handled` | Operator | `{ handled: true }` |
 
 ## Privacy explorer (demo mode only)
 

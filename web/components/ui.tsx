@@ -368,3 +368,52 @@ export function GridFillers({ count, sm, lg, as: Tag = "li" }: { count: number; 
     </>
   );
 }
+
+/** An on/off switch with a visible label and an optional description. */
+export function Switch({
+  checked,
+  onChange,
+  label,
+  description,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+  description?: ReactNode;
+  disabled?: boolean;
+}) {
+  const id = useId();
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <p id={`${id}-label`} className="text-sm font-medium text-fg">
+          {label}
+        </p>
+        {description && (
+          <p id={`${id}-desc`} className="mt-0.5 text-sm text-muted">
+            {description}
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-labelledby={`${id}-label`}
+        aria-describedby={description ? `${id}-desc` : undefined}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={cx(
+          "relative mt-0.5 h-7 w-12 flex-none rounded-full transition-colors duration-200 disabled:opacity-60",
+          checked ? "bg-fg" : "bg-line-strong",
+        )}
+      >
+        <span
+          className={cx("absolute left-0 top-1 h-5 w-5 rounded-full bg-page shadow-soft transition-transform duration-200", checked ? "translate-x-6" : "translate-x-1")}
+          aria-hidden="true"
+        />
+      </button>
+    </div>
+  );
+}

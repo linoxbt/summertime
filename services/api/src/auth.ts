@@ -52,7 +52,7 @@ export async function sessionUser(ctx: AppContext, req: FastifyRequest): Promise
   }>(
     `SELECT u.id, u.handle, u.display_name, u.role, u.kind, u.email, p.party_id, p.mode
        FROM sessions s JOIN users u ON u.id = s.user_id JOIN party_links p ON p.user_id = u.id
-      WHERE s.token_hash = $1 AND s.expires_at > now()`,
+      WHERE s.token_hash = $1 AND s.expires_at > now() AND u.deleted_at IS NULL`,
     [hash(token, ctx.config.sessionSecret)],
   );
   const row = r.rows[0];

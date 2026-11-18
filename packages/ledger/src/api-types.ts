@@ -51,6 +51,38 @@ export interface OutcomeDto {
   updateId?: string;
 }
 
+export interface NotificationDto {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  link: string | null;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface NotificationList {
+  items: NotificationDto[];
+  unread: number;
+}
+
+export interface Preferences {
+  notifyEmail: boolean;
+  /** False when the server cannot send email (no provider configured). */
+  emailAvailable: boolean;
+}
+
+export interface ContactMessageDto {
+  id: string;
+  name: string;
+  email: string;
+  company: string | null;
+  topic: string;
+  message: string;
+  createdAt: string;
+  handled: boolean;
+}
+
 export interface ForwarderCampaignSummary {
   campaignId: string;
   title: string;
@@ -61,6 +93,8 @@ export interface ForwarderCampaignSummary {
   committed: Capacity;
   committedCount: number;
   thresholdMet: boolean;
+  /** Settle automatically as soon as the threshold is met (worker, before the deadline). */
+  autoSettle: boolean;
   outcome?: OutcomeDto;
   createdAt: string;
 }

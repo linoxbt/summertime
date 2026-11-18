@@ -35,6 +35,7 @@ const pages = [
   { who: null, path: "/docs" },
   { who: null, path: "/terms" },
   { who: null, path: "/privacy" },
+  { who: null, path: "/contact" },
   { who: null, path: "/login" },
   { who: null, path: "/signup" },
   { who: null, path: "/forgot-password" },
@@ -47,6 +48,7 @@ const pages = [
   { who: "Ada Phone Accessories", path: "/importer" },
   adaPos && { who: "Ada Phone Accessories", path: `/importer/campaigns/${encodeURIComponent(adaPos.campaignId)}` },
   { who: "Ada Phone Accessories", path: "/history" },
+  { who: "Ada Phone Accessories", path: "/notifications" },
   { who: "Summertime \\(operator\\)", path: "/operations" },
   { who: "Summertime \\(operator\\)", path: "/explorer" },
 ].filter(Boolean);

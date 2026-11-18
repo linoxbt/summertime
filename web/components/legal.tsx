@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Eyebrow, PublicPage } from "./public";
 
 export const LEGAL_UPDATED = "18 November 2026";
-export const CONTACT_URL = "https://github.com/linoxbt/summertime/issues";
+export const CONTACT_URL = "/contact";
 
 /** A legal page: title, date, short numbered sections in the outlined frame. */
 export function LegalPage({ eyebrow, title, intro, sections }: { eyebrow: string; title: string; intro: ReactNode; sections: { title: string; body: ReactNode }[] }) {
@@ -32,6 +32,7 @@ export function LegalPage({ eyebrow, title, intro, sections }: { eyebrow: string
         <p className="border-t border-line px-4 py-6 text-sm text-muted sm:px-6">
           See also: <Link href="/terms" className="font-medium text-link hover:underline">Terms</Link> ·{" "}
           <Link href="/privacy" className="font-medium text-link hover:underline">Privacy</Link> ·{" "}
+          <Link href="/contact" className="font-medium text-link hover:underline">Contact</Link> ·{" "}
           <Link href="/docs#trust-model" className="font-medium text-link hover:underline">Trust model</Link>
         </p>
       </div>

@@ -3,6 +3,7 @@ import cookie from "@fastify/cookie";
 import { migrate } from "@summertime/platform";
 import { createContext } from "./context.ts";
 import { ApiError, errorHandler } from "./errors.ts";
+import { accountRoutes } from "./routes/account.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { commonRoutes } from "./routes/common.ts";
 import { forwarderRoutes } from "./routes/forwarder.ts";
@@ -24,6 +25,7 @@ export async function buildApp() {
     }
   });
   authRoutes(app, ctx);
+  accountRoutes(app, ctx);
   commonRoutes(app, ctx);
   forwarderRoutes(app, ctx);
   importerRoutes(app, ctx);

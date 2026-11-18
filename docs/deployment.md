@@ -40,8 +40,10 @@ after a start is fast.
 | `PROGRESS_INTERVAL_SECONDS`, `OPS_INTERVAL_SECONDS` | `15` |
 | `NODE_ENV` | `production` (secure cookies) |
 | `JAVA_OPTS` | `-Xms512m -Xmx2g` |
-| `BREVO_API_KEY`, `EMAIL_FROM` | email for password-reset codes through Brevo, which needs no custom domain: `EMAIL_FROM` is the single sender address verified in Brevo. (`RESEND_API_KEY` also works but needs a verified domain.) Without a provider, production refuses reset (`EMAIL_UNAVAILABLE`); development writes mail to the `mail_outbox` table |
+| `BREVO_API_KEY`, `EMAIL_FROM` | email for notifications and password-reset codes through Brevo, which needs no custom domain: `EMAIL_FROM` is the single sender address verified in Brevo. (`RESEND_API_KEY` also works but needs a verified domain.) Without a provider, production refuses reset (`EMAIL_UNAVAILABLE`); development writes mail to the `mail_outbox` table |
 | `PRIVY_APP_ID` | sign-in through Privy (set: `cmwl9cugu00yj0gjtnqsv6vx1`). Token keys come from Privy's published JWKS; `PRIVY_VERIFICATION_KEY` (PEM) overrides them, for tests. The email comes from the identity token (Privy dashboard: "Return user data in an identity token" on); `PRIVY_APP_SECRET` is optional, a fallback user lookup |
+| `CONTACT_INBOX` | optional: an address that gets a copy of each Contact-page message (needs an email provider). The operator also reads them on the Operations page |
+| `PUBLIC_WEB_URL` | optional: the site address used in email links (default `https://summertime-app.netlify.app`) |
 | `OPERATOR_EMAIL`, `OPERATOR_PASSWORD` | the Summertime operator's real sign-in (set: `operator@summertime.app`). Applied when the values change; a password changed later in the app is kept. Without them the operator is a demo account |
 
 Service settings: Dockerfile `deploy/backend/Dockerfile`, restart on failure, watch paths

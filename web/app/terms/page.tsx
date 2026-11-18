@@ -81,8 +81,8 @@ export default function TermsPage() {
           title: "Changes and contact",
           body: (
             <p>
-              We may update these terms; the date above shows the latest version. Questions? Open an issue on{" "}
-              <a href={CONTACT_URL}>GitHub</a>.
+              We may update these terms; the date above shows the latest version. Questions? Use the{" "}
+              <a href={CONTACT_URL}>Contact page</a>.
             </p>
           ),
         },

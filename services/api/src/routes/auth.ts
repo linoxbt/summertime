@@ -13,7 +13,7 @@ import { z } from "zod";
 import type { AppContext } from "../context.ts";
 import { createSession, destroySession, me, requireUser, revokeSessions, sessionUser } from "../auth.ts";
 import { ApiError, forbidden, notFound } from "../errors.ts";
-import { mailConfigured, sendMail } from "../mailer.ts";
+import { mailConfigured, sendMail } from "@summertime/platform";
 import { dummyHash, hashPassword, passwordProblem, verifyPassword } from "../passwords.ts";
 import { privyConfigured, privyIdentity, type PrivyIdentity } from "../privy.ts";
 

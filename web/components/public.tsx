@@ -12,6 +12,7 @@ const PAGES = [
   { href: "/docs", label: "Docs" },
   { href: "/login", label: "Sign in" },
   { href: "/demo", label: "Demo" },
+  { href: "/contact", label: "Contact" },
 ];
 
 export function PublicHeader() {
@@ -46,7 +47,7 @@ export function PublicFooter() {
           <Logo inverted />
           <p className="mt-4 max-w-xs text-sm">Shared containers. One settlement. Built on Canton with USDCx.</p>
         </div>
-        <FooterCol title="Product" links={[["/docs", "Docs"], ["/signup", "Create account"], ["/demo", "Demo"]]} />
+        <FooterCol title="Product" links={[["/docs", "Docs"], ["/signup", "Create account"], ["/demo", "Demo"], ["/contact", "Contact"]]} />
         <FooterCol title="Project" links={[["https://github.com/linoxbt/summertime", "Source"], ["https://www.canton.network", "Canton Network"], ["/docs#trust-model", "Trust model"]]} last />
       </div>
       <div className="border-t border-[#2c2b28]">

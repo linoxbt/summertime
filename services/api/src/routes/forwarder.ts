@@ -54,6 +54,7 @@ const NewCampaign = z.object({
   deadline: z.string().datetime({ offset: true }),
   bondUsdc: decimal,
   claimWindowDays: z.number().int().min(1).max(365).default(90),
+  autoSettle: z.boolean().default(false),
 });
 
 /** Build ledger terms from the wizard input, applying the same rules as the Daml ensure clause. */
@@ -150,6 +151,7 @@ async function summary(ctx: AppContext, s: CampaignState): Promise<ForwarderCamp
     committed: capacity(s.committed),
     committedCount: s.committedCount,
     thresholdMet: s.committed >= BigInt(s.terms.thresholdMilliCbm),
+    autoSettle: s.label.autoSettle,
     outcome: s.outcome ? await outcomeDto(ctx, s.outcome.payload) : undefined,
     createdAt: s.label.createdAt,
   };
@@ -186,8 +188,8 @@ export function forwarderRoutes(app: FastifyInstance, ctx: AppContext) {
     const res = await idempotent(ctx, req, async (i) => {
       const campaignId = `cmp-${randomBytes(5).toString("hex")}`;
       await ctx.db.query(
-        "INSERT INTO campaign_index (campaign_id, forwarder_party, title, route, terms_snapshot) VALUES ($1, $2, $3, $4, $5)",
-        [campaignId, user.party, input.title, input.route ?? null, JSON.stringify(terms)],
+        "INSERT INTO campaign_index (campaign_id, forwarder_party, title, route, terms_snapshot, auto_execute) VALUES ($1, $2, $3, $4, $5, $6)",
+        [campaignId, user.party, input.title, input.route ?? null, JSON.stringify(terms), input.autoSettle],
       );
       const out = await ctx.commands.run(
         "campaign.propose",
@@ -349,7 +351,7 @@ export function forwarderRoutes(app: FastifyInstance, ctx: AppContext) {
   // Demo forwarders see demo importers; real forwarders see real importers.
   app.get("/importers", guard, async (req) => {
     const r = await ctx.db.query<{ party_id: string; display_name: string; handle: string }>(
-      "SELECT p.party_id, u.display_name, u.handle FROM users u JOIN party_links p ON p.user_id = u.id WHERE u.role = 'importer' AND u.kind = $1 ORDER BY u.display_name",
+      "SELECT p.party_id, u.display_name, u.handle FROM users u JOIN party_links p ON p.user_id = u.id WHERE u.role = 'importer' AND u.kind = $1 AND u.deleted_at IS NULL ORDER BY u.display_name",
       [me(req).kind],
     );
     return { data: r.rows.map((x) => ({ party: x.party_id, displayName: x.display_name, handle: x.handle })) };
@@ -367,7 +369,7 @@ export function forwarderRoutes(app: FastifyInstance, ctx: AppContext) {
         if (!p) throw invalid("UNKNOWN_IMPORTER", `Unknown importer: ${h}`);
         if (p === user.party) throw invalid("UNKNOWN_IMPORTER", "You cannot invite yourself.");
         const target = await ctx.db.query(
-          "SELECT 1 FROM users u JOIN party_links l ON l.user_id = u.id WHERE l.party_id = $1 AND u.role = 'importer' AND u.kind = $2",
+          "SELECT 1 FROM users u JOIN party_links l ON l.user_id = u.id WHERE l.party_id = $1 AND u.role = 'importer' AND u.kind = $2 AND u.deleted_at IS NULL",
           [p, user.kind],
         );
         if (!target.rowCount) throw invalid("UNKNOWN_IMPORTER", `Unknown importer: ${h}`);
@@ -398,6 +400,18 @@ export function forwarderRoutes(app: FastifyInstance, ctx: AppContext) {
         );
       }
       return { invited: invitees.length };
+    });
+    return reply.code(res.status).send(res.body);
+  });
+
+  app.post<{ Params: { id: string } }>("/campaigns/:id/auto-settle", guard, async (req, reply) => {
+    const user = me(req);
+    const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
+    const res = await idempotent(ctx, req, async () => {
+      const { s } = await ownedCampaign(ctx, user.party, req.params.id);
+      if (s.outcome) throw conflict("ALREADY_FINAL", "This campaign has already finished.");
+      await ctx.db.query("UPDATE campaign_index SET auto_execute = $2 WHERE campaign_id = $1", [s.id, enabled]);
+      return { autoSettle: enabled };
     });
     return reply.code(res.status).send(res.body);
   });

@@ -8,7 +8,8 @@
 import { RegistryClient } from "@summertime/ledger";
 import { CommandRunner, acquireLeaderLock, createDb, createLedger, createLogger, getDeployment, loadConfig, migrate, pilotParties } from "@summertime/platform";
 import { custodyPass } from "./custody.ts";
-import { forwarderPass } from "./forwarder.ts";
+import { autoSettlePass, forwarderPass } from "./forwarder.ts";
+import { emailPass, notifyPass } from "./notify.ts";
 import { operatorPass } from "./operator.ts";
 import { opsPass } from "./ops.ts";
 import type { WorkerContext } from "./shared.ts";
@@ -76,8 +77,19 @@ while (!stopping) {
     // Run on new ledger activity, and at least every 5 seconds for time-based triggers.
     if (end !== from || Date.now() - lastFullPass >= 5000) {
       const pilots = await pilotParties(db);
+      // Notifications first, so they see this pass's starting state (automation below can
+      // archive a record, e.g. auto-settle consumes a fresh commitment). Never blocks automation.
+      try {
+        await notifyPass(w);
+        await emailPass(w);
+      } catch (e) {
+        log.warn({ err: e instanceof Error ? e.message.slice(0, 300) : String(e) }, "notification pass failed");
+      }
       await operatorPass(w);
-      for (const f of pilots.filter((p) => p.role === "forwarder")) await forwarderPass(w, f);
+      for (const f of pilots.filter((p) => p.role === "forwarder")) {
+        await forwarderPass(w, f);
+        await autoSettlePass(w, f);
+      }
       await custodyPass(w, pilots.filter((p) => p.role !== "operator"));
       await storeOffset(end);
       lastFullPass = Date.now();
