@@ -34,7 +34,8 @@ The MVP described here is implemented in this repository and runs end to end on 
 | Auto-settle (section 19.4, "MAY auto-execute") | Implemented: opt-in per campaign, at creation or later; the worker settles as soon as the threshold is met, before the deadline | `services/worker/src/forwarder.ts` (`autoSettlePass`); features test |
 | Contact page (section 23.1) | Implemented: `/contact`, messages stored and shown to the operator on Operations, optional copy by email | `services/api/src/routes/account.ts`, `web/app/contact` |
 | Account deletion ("contact data is deleted on request") | Implemented, self-service: personal data and sign-in removed, ledger history kept; refused while obligations are open | `POST /auth/account/delete`; features test |
-| DevNet deployment, real USDCx | Not yet | — |
+| DevNet readiness | Implemented: OAuth client-credentials Ledger API auth with renewal, single service user with per-party rights, external-participant onboarding (package upload, operator party, real instrument, no faucet or demo), `LEDGER_MODE=external` container start; rehearsed against a token-protected participant | `packages/platform/src/ledger-auth.ts`, `services/api/src/onboard.ts`, `tests/devnet-rehearsal`, `docs/devnet.md` |
+| DevNet deployment, real USDCx | Not yet: needs a DevNet participant (node provider invite requested) | — |
 | Wallet mode | Not yet (pilot mode only) | — |
 
 End-to-end suites, all passing against the live stack: success and failure campaigns through the API; authorization, idempotency and visibility guards; bond custody reconciliation under simulated operator misuse; the full browser journey on phone-sized screens through booking and dispute resolution; and a WCAG 2.1 A/AA audit of every page.

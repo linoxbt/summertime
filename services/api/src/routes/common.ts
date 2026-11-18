@@ -21,7 +21,7 @@ export function commonRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/me/balance", { preHandler: requireUser(ctx) }, async (req) => {
     const d = await ctx.deployment();
     const b = await balance(ctx, me(req).party);
-    return { data: { available: amount(b.available), locked: amount(b.locked), instrument: d.instrument.symbol } };
+    return { data: { available: amount(b.available), locked: amount(b.locked), instrument: d.instrument.symbol, network: d.network } };
   });
 
   // ---- Privacy explorer (demo only, F-12) --------------------------------------------------

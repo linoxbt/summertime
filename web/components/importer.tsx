@@ -39,7 +39,7 @@ export function BalanceChip({ showFaucet = true }: { showFaucet?: boolean }) {
           </>
         )}
       </div>
-      {showFaucet && (
+      {showFaucet && q.data?.network === "sandbox" && (
         <Button variant="secondary" className="min-h-9 px-3 py-1 text-xs" busy={busy} onClick={faucet}>
           Add 10,000 test USDCx
         </Button>

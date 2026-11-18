@@ -7,6 +7,8 @@ export * from "./config.ts";
 export * from "./db.ts";
 export * from "./commands.ts";
 export * from "./mailer.ts";
+export * from "./ledger-auth.ts";
+import { ledgerAuthFromEnv } from "./ledger-auth.ts";
 
 export function createLogger(name: string): Logger {
   return pino({
@@ -18,10 +20,9 @@ export function createLogger(name: string): Logger {
 }
 
 export function createLedger(config: Config): LedgerClient {
-  // Sandbox and LocalNet run without Ledger API auth. For DevNet and beyond, set
-  // LEDGER_TOKEN (or replace with an OAuth client-credentials provider).
-  const token = process.env.LEDGER_TOKEN;
-  return new LedgerClient({ baseUrl: config.ledgerUrl, userId: config.ledgerUserId, token: async () => token });
+  // Our own ledger runs without auth; DevNet and beyond need a token (see ledger-auth.ts).
+  const auth = ledgerAuthFromEnv();
+  return new LedgerClient({ baseUrl: config.ledgerUrl, userId: config.ledgerUserId, token: auth.token, singleUser: auth.mode !== "none" });
 }
 
 /**

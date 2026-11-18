@@ -1,0 +1,12 @@
+// Synchronizer only: the application uploads its packages through the Ledger API, as it
+// would on a node-as-a-service participant.
+bootstrap.synchronizer(
+  synchronizerName = "rehearsal",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  synchronizerOwners = Seq(sequencer1),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+)
+participant1.synchronizers.connect_local(sequencer1, alias = "rehearsal")
+println("REHEARSAL LEDGER READY")

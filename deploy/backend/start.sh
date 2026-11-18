@@ -2,6 +2,12 @@
 # Start the Summertime backend inside one container:
 #   exclusive lock → ledger (Canton on Postgres) → bootstrap → dev registry → worker → API.
 #
+# With LEDGER_MODE=external the container instead uses a participant somewhere else (DevNet,
+# TestNet, MainNet; self-hosted or node-as-a-service): no local ledger, no test token
+# registry. It onboards (services/api/src/onboard.ts), then runs the worker and the API.
+# Set LEDGER_URL, REGISTRY_URL, NETWORK, INSTRUMENT_ADMIN, INSTRUMENT_ID and the LEDGER_AUTH
+# variables (packages/platform/src/ledger-auth.ts); see docs/devnet.md.
+#
 # The ledger keeps its state in Postgres (canton_* databases next to the app database), so
 # accounts, parties and contracts survive restarts and redeploys. Bootstrap only seeds a
 # ledger that is new. If any long-running process exits, everything stops and the container
@@ -10,8 +16,6 @@ set -uo pipefail
 
 : "${DATABASE_URL:?DATABASE_URL must be set}"
 export API_PORT="${PORT:-8080}" API_HOST=0.0.0.0
-export LEDGER_URL=http://127.0.0.1:7575 REGISTRY_URL=http://127.0.0.1:7590 REGISTRY_PORT=7590
-export SUMMERTIME_DARS=/opt/summertime/summertime-core-0.1.0.dar,/opt/summertime/splice-test-token-v1-1.0.2.dar
 cd /app
 
 log() { echo "[start] $*"; }
@@ -23,6 +27,31 @@ run() { # run NAME CMD... in the background with prefixed logs
 }
 stop_all() { kill "${pids[@]}" 2>/dev/null; wait 2>/dev/null; }
 trap 'log "stopping"; stop_all; exit 0' TERM INT
+
+if [ "${LEDGER_MODE:-own}" = external ]; then
+  : "${LEDGER_URL:?LEDGER_URL must be set with LEDGER_MODE=external}"
+  : "${REGISTRY_URL:?REGISTRY_URL must be set with LEDGER_MODE=external}"
+  export UPLOAD_DARS="${UPLOAD_DARS:-/opt/summertime/summertime-core-0.1.0.dar}"
+  log "using the external participant at $LEDGER_URL"
+  for attempt in $(seq 1 6); do
+    if node_modules/.bin/tsx services/api/src/onboard.ts 2>&1 | sed -u 's/^/[onboard] /'; [ "${PIPESTATUS[0]}" -eq 0 ]; then
+      log "onboarding done"; break
+    fi
+    [ "$attempt" -eq 6 ] && { log "onboarding failed"; exit 1; }
+    log "onboarding attempt $attempt failed; retrying"; sleep 10
+  done
+  run worker node_modules/.bin/tsx services/worker/src/main.ts
+  run api node_modules/.bin/tsx services/api/src/main.ts
+  log "api starting on port $API_PORT"
+  wait -n "${pids[@]}"
+  log "a process exited; stopping the container"
+  stop_all
+  exit 1
+fi
+
+# Our own ledger (the default).
+export LEDGER_URL=http://127.0.0.1:7575 REGISTRY_URL=http://127.0.0.1:7590 REGISTRY_PORT=7590
+export SUMMERTIME_DARS=/opt/summertime/summertime-core-0.1.0.dar,/opt/summertime/splice-test-token-v1-1.0.2.dar
 
 # 1. Only one ledger may use the databases at a time (old and new deploys can overlap).
 rm -f /tmp/ledger.lock

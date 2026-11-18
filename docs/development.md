@@ -93,9 +93,7 @@ instead of being sent. The seeded demo accounts are at `/demo` and have no passw
 
 ## Moving to DevNet
 
-1. Join DevNet with an allowlisted validator or a node-as-a-service provider (spec section 9).
-2. Upload `summertime-core-0.1.0.dar` to the participant (`POST /v2/packages`) and vet it.
-3. Point `REGISTRY_URL` at the instrument's registry (USDCx: the DA Registry Utility) and set the instrument admin from an official source (spec section 16). The API and worker use only the standard CIP-56 endpoints, so no code changes.
-4. Replace `bootstrap` with real onboarding: allocate forwarder, operator and importer parties on your validator; create Ledger API users with exactly `CanActAs(party)`; set `LEDGER_TOKEN` (or an OAuth client) per service.
-5. Set `DEMO_MODE=false` and a strong `SESSION_SECRET`.
-6. Answer the open questions in spec section 41 that depend on the real registry, especially allocation expiry (question 1).
+See [`docs/devnet.md`](devnet.md): what to get from a node provider, the instrument values,
+the Railway settings (`LEDGER_MODE=external`, `LEDGER_AUTH=oauth`), and the first checks.
+`tests/devnet-rehearsal/run.sh` rehearses it locally against a participant that requires
+Ledger API tokens.

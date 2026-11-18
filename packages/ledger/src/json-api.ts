@@ -105,6 +105,12 @@ export interface LedgerClientOptions {
   /** Returns a bearer token for the Ledger API user, or undefined when auth is disabled. */
   token?: () => Promise<string | undefined>;
   userId?: string;
+  /**
+   * Single-user mode, for participants that require auth: every command is submitted as
+   * `userId` (the token's user), and `createUser` grants that user the rights instead of
+   * creating a user per party.
+   */
+  singleUser?: boolean;
 }
 
 export class LedgerClient {
@@ -156,6 +162,10 @@ export class LedgerClient {
       ...actAs.map((party) => ({ kind: { CanActAs: { value: { party } } } })),
       ...readAs.map((party) => ({ kind: { CanReadAs: { value: { party } } } })),
     ];
+    if (this.opts.singleUser) {
+      await this.grantRights(this.opts.userId ?? "summertime", rights);
+      return;
+    }
     try {
       await this.request("POST", "/v2/users", {
         user: { id: userId, primaryParty, isDeactivated: false, identityProviderId: "" },
@@ -167,6 +177,12 @@ export class LedgerClient {
     }
   }
 
+  /** Grant rights to an existing user (adding a right the user already has is a no-op). */
+  async grantRights(userId: string, rights: unknown[]): Promise<void> {
+    if (rights.length === 0) return;
+    await this.request("POST", `/v2/users/${encodeURIComponent(userId)}/rights`, { userId, rights, identityProviderId: "" });
+  }
+
   /** Submit and wait, returning the transaction with ledger effects (exercise results included). */
   async submit(s: Submission): Promise<Transaction> {
     const parties = [...new Set([...s.actAs, ...(s.readAs ?? [])])];
@@ -176,7 +192,7 @@ export class LedgerClient {
         commandId: s.commandId,
         actAs: s.actAs,
         readAs: s.readAs ?? [],
-        userId: s.userId ?? this.opts.userId ?? "summertime",
+        userId: (this.opts.singleUser ? undefined : s.userId) ?? this.opts.userId ?? "summertime",
         disclosedContracts: s.disclosedContracts ?? [],
       },
       transactionFormat: {

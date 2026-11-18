@@ -228,6 +228,8 @@ export interface BalanceDto {
   available: Amount;
   locked: Amount;
   instrument: string;
+  /** Where the ledger runs; the test faucet exists only on our own test ledger ("sandbox"). */
+  network: "sandbox" | "localnet" | "devnet" | "testnet" | "mainnet";
 }
 
 export interface SessionUser {

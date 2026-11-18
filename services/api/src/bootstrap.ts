@@ -10,6 +10,7 @@
 
 import { LedgerError, T, TestToken } from "@summertime/ledger";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { hashPassword } from "./passwords.ts";
 import { CommandRunner, createDb, createLedger, createLogger, getSystemConfig, loadConfig, migrate, setSystemConfig, type Deployment } from "@summertime/platform";
 
@@ -39,6 +40,13 @@ const accounts: Account[] = [
 ];
 
 await migrate(db);
+
+// Upload packages through the Ledger API when asked (UPLOAD_DARS: comma-separated paths). Our
+// hosted ledger loads them at start instead; an external participant takes them this way.
+for (const path of (process.env.UPLOAD_DARS ?? "").split(",").filter(Boolean)) {
+  await ledger.uploadDar(new Uint8Array(await readFile(path)));
+  log.info({ dar: path }, "package uploaded");
+}
 
 const existing = await getSystemConfig<Deployment>(db, "deployment");
 const onLedger = new Set(await ledger.listParties());
