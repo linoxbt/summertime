@@ -61,6 +61,45 @@ jobs:
           name: multi-participant-logs
           path: .run/mp-*
 
+  devnet-rehearsal:
+    name: DevNet rehearsal (Ledger API auth)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: summertime
+          POSTGRES_PASSWORD: summertime
+          POSTGRES_DB: summertime
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U summertime"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG_ADMIN_URL: postgres://summertime:summertime@127.0.0.1:5432/summertime
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dpm (Daml SDK)
+        run: |
+          curl -fsSL https://get.digitalasset.com/install/install.sh | sh -s "$DAML_SDK_VERSION"
+          echo "$HOME/.dpm/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+      - name: Token-protected participant, OAuth tokens, full API and features tests, onboarding
+        run: tests/devnet-rehearsal/run.sh
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-rehearsal-logs
+          path: .run/rh-*
+
   typescript:
     name: TypeScript, unit tests and web build
     runs-on: ubuntu-latest
